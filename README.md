@@ -8,8 +8,8 @@ Experimental project to learn assembly and other low-level stuff.
 - Function calls
 - Integer addition
 ## TODO:
-- [] Implement classes
-- [] Add strings
-- [] Add arrays
-- [] More math
-- [] More number types
+- [ ] Implement classes
+- [ ] Add strings
+- [ ] Add arrays
+- [ ] More math
+- [ ] More number types
