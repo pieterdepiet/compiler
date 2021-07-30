@@ -13,3 +13,4 @@ Experimental project to learn assembly and other low-level stuff.
 - [ ] Add arrays
 - [ ] More math
 - [ ] More number types
+- [ ] Think of a name for the language and an extension name
