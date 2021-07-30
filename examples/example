@@ -1,0 +1,7 @@
+fun add(_ arg : Int, arg2 insideName : Int) : Int {
+    return arg + insideName;
+}
+
+fun start(_ argc : Int) : Int {
+    print(add(10, arg2 : 20));
+}
