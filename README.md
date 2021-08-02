@@ -7,7 +7,10 @@ Experimental project to learn assembly and other low-level stuff.
 - Function definitions with return values and named arguments
 - Function calls
 - Integer addition
+## In progress
+- Add import
 ## TODO:
+- [ ] Add import
 - [ ] Implement classes
 - [ ] Add strings
 - [ ] Add arrays
