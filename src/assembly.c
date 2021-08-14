@@ -35,11 +35,10 @@ char* fcall_format =        "  call%c %s\n";
 size_t fcall_format_min_length = 9 + 1;
 char* toreg_format =    "  mov%c %s, %s\n";
 size_t toreg_format_min_length = 10 + reg_length + 1;
-char* add_format =      "  add%c %s, %s\n";
-size_t add_format_min_length = 10 + reg_length + 1;
+char* binop_format =    "  %s%c %s, %s\n";
+size_t binop_format_min_length = 7 + reg_length + 1;
 
 int arg_registers[] = {REG_DI, REG_SI, REG_DX, REG_CX};
-
 
 static int is_primitive(AST_T* node) {
     switch (node->type) {
@@ -100,7 +99,7 @@ as_function_T* init_as_function(char* name) {
 }
 as_data_T* init_as_data(char* name, data_type_T* data_type) {
     as_data_T* as_data = calloc(1, sizeof(struct assembly_data_struct));
-    as_data->type = data_type;
+    as_data->value_type = data_type;
     as_data->name = name;
     return as_data;
 }
@@ -110,8 +109,8 @@ as_op_T* init_as_op(int type) {
     as_op->argno = 0;
     as_op->name = (void*) 0;
     as_op->op_size = 0;
-    as_op->value = (void*) 0;
     as_op->var_location = 0;
+    as_op->value.ptr_value = 0;
     return as_op;
 }
 as_text_T* init_as_text() {
@@ -130,33 +129,21 @@ void as_add_op_to_function(as_function_T* function, as_op_T* op) {
     list_add(function->operations, op);
 }
 
-char* as_compile_ast(as_text_T* as, AST_T* node) {
-    if (node->data_type->primitive_type == TYPE_INT) {
-        char* format = "%d";
-        char* value = calloc(1, 12 * sizeof(char));
-        sprintf(value, format, node->int_value);
-        return value;
-    } else {
-        err_bad_immediate(node);
-    }
-    return (void*) 0;
-}
-
 void as_compile_data(as_text_T* as, char** as_text, as_data_T* data) {
     char* format = "%s  _%s: .%s %s\n";
-    char* value_string = as_compile_ast(as, data->value);
+    char* value_string = as_compile_to_imm(data->value_type, data->value);
     size_t as_text_size = 
     strlen(*as_text)
     + 3 //   _
     + strlen(data->name) // %s
     + 3 // : .
-    + assembly_types_lengths[data->type->primitive_type] // %s
+    + assembly_types_lengths[data->value_type->primitive_type] // %s
     + 1 // space
     + strlen(value_string)
     + 2 // \n\0
     ;
     *as_text = realloc(*as_text, as_text_size * sizeof(char));
-    sprintf(*as_text, format, *as_text, data->name, assembly_types[data->type->primitive_type], value_string);
+    sprintf(*as_text, format, *as_text, data->name, assembly_types[data->value_type->primitive_type], value_string);
 }
 as_text_T* as_compile_file(as_file_T* as_file) {
     as_text_T* as = init_as_text();
@@ -190,13 +177,27 @@ void as_compile_function_definition(as_text_T* as, char** as_text, as_function_T
     utils_strcat(as_text, tmp);
     free(tmp);
 }
-char* as_compile_ast_to_imm(AST_T* node) {
-    if (node->type==AST_INT) {
-        char* tmp = calloc(1, int_max_length * sizeof(int));
-        sprintf(tmp, "$%d", node->int_value);
+char* as_compile_to_imm(data_type_T* type, as_value_U value) {
+    if (type->primitive_type==TYPE_INT) {
+        char* tmp = calloc(1, (1 + int_max_length) * sizeof(char));
+        sprintf(tmp, "$%d", value.int_value);
         return tmp;
     } else {
         return "$0";
+    }
+}
+char* as_ensure_no_mem(as_function_T* as, char** as_text, as_op_T* op) {
+    if (as->last_register == REG_IMM && as->imm_is_mem) {
+        char* tmp1 = calloc(1, (toreg_format_min_length + strlen(as->last_imm_str)) * sizeof(char));
+        sprintf(tmp1, toreg_format, data_type_size_op_char(op->op_size), as->last_imm_str, data_type_size_register(math_registers[as->used_reg+1], op->op_size));
+        utils_strcat(as_text, tmp1);
+        as->imm_is_mem = 0;
+        as->last_register = math_registers[as->used_reg+1];
+    }
+    if (as->last_register == REG_IMM) {
+        return as->last_imm_str;
+    } else {
+        return data_type_size_register(as->last_register, op->op_size);
     }
 }
 void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
@@ -213,9 +214,11 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         utils_strcat(as_text, temp);
         as->last_register = REG_CX;
     } else if (op->type == ASOP_SETLASTIMM) {
-        as->last_imm_str = as_compile_ast_to_imm(op->value);
+        as->last_imm_str = as_compile_to_imm(op->data_type, op->value);
+        as->imm_is_mem = 0;
         as->last_register = REG_IMM;
     } else if (op->type == ASOP_VDEF) {
+        src = as_ensure_no_mem(as, as_text, op);
         char* temp = calloc(1, (vdef_format_min_length + strlen(src)) * sizeof(char));
         sprintf(temp, vdef_format, data_type_size_op_char(op->op_size), src, op->var_location);
         utils_strcat(as_text, temp);
@@ -223,9 +226,11 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         as->last_register = REG_IMM;
         char* temp = calloc(1, (vref_format_length) * sizeof(char));
         sprintf(temp, vref_format, op->var_location);
+        as->imm_is_mem = 1;
         as->last_imm_str = temp;
     } else if (op->type == ASOP_VMOD) {
-        char* temp = calloc(1, (vdef_format_min_length + strlen(src)) * sizeof(char));
+        src = as_ensure_no_mem(as, as_text, op);
+        char* temp = calloc(1, (vmod_format_min_length + strlen(src)) * sizeof(char));
         sprintf(temp, vmod_format, data_type_size_op_char(op->op_size), src, op->var_location);
         utils_strcat(as_text, temp);
     } else if (op->type == ASOP_ARGTOSTACK) {
@@ -256,11 +261,39 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         }
         as->last_register = math_registers[as->used_reg];
         as->used_reg--;
-    } else if (op->type == ASOP_ADD) {
-        char* temp = calloc(1, (add_format_min_length + strlen(src)) * sizeof(char));
-        sprintf(temp, add_format, data_type_size_op_char(op->op_size), src, data_type_size_register(math_registers[as->used_reg], op->op_size));
-        utils_strcat(as_text, temp);
+    } else if (op->type == ASOP_BINOP) {
+        as_compile_binop(as, as_text, op, src);
     } else {
         err_unexpected_as_op(op);
+    }
+}
+void as_compile_binop(as_function_T* as, char** as_text, as_op_T* op, char* src) {
+    char* instr;
+    if (op->data_type->primitive_type == TYPE_INT) {
+        if (op->binop_type == BINOP_PLUS) {
+            instr = "add";
+        } else if (op->binop_type == BINOP_MINUS){
+            instr = "sub";
+        }
+    }
+    char* temp = calloc(1, (binop_format_min_length + strlen(instr) + strlen(src)));
+    char* reg = data_type_size_register(math_registers[as->used_reg], op->op_size);
+    sprintf(temp, binop_format, instr, data_type_size_op_char(op->op_size), src, reg);
+    utils_strcat(as_text, temp);
+}
+char* as_op_type_string(enum op_type type) {
+    switch (type) {
+        case ASOP_BINOP: return "binop";
+        case ASOP_ARGTOREG: return "argtoreg";
+        case ASOP_ARGTOSTACK: return "argtostack";
+        case ASOP_FCALL: return "fcall";
+        case ASOP_FREEREG: return "freereg";
+        case ASOP_NEXTREG: return "nextreg";
+        case ASOP_RETURN: return "return";
+        case ASOP_RETVAL: return "retval";
+        case ASOP_SETLASTIMM: return "setlastimm";
+        case ASOP_VDEF: return "vdef";
+        case ASOP_VMOD: return "vmod";
+        case ASOP_VREF: return "vref";
     }
 }

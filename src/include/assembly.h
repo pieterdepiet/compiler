@@ -1,31 +1,39 @@
 #ifndef AS_TEXT_H
 #define AS_TEXT_H
-#include "AST.h"
+#include "data_type.h"
+#include "list.h"
 
+typedef union assembly_value_union {
+    int int_value;
+    long long_value;
+    char char_value;
+    void* ptr_value;
+} as_value_U;
 typedef struct AS_TEXT_STRUCT {
     char* buf;
-    
 } as_text_T;
 typedef struct ASSEMBLY_OPERATION_STRUCT {
-    enum {
-        ASOP_RETURN,
-        ASOP_ARGTOSTACK,
-        ASOP_ARGTOREG,
-        ASOP_SETLASTIMM,
-        ASOP_VDEF,
-        ASOP_VREF,
-        ASOP_VMOD,
-        ASOP_FCALL,
-        ASOP_RETVAL,
-        ASOP_NEXTREG,
-        ASOP_FREEREG,
-        ASOP_ADD
+    enum op_type {
+        ASOP_RETURN, // 0
+        ASOP_ARGTOSTACK, // 1
+        ASOP_ARGTOREG, // 2
+        ASOP_SETLASTIMM, // 3
+        ASOP_VDEF, // 4
+        ASOP_VREF, // 5
+        ASOP_VMOD, // 6
+        ASOP_FCALL, // 7
+        ASOP_RETVAL, // 8
+        ASOP_NEXTREG, // 9
+        ASOP_FREEREG, // 10
+        ASOP_BINOP // 11
     } type;
-    AST_T* value;
     char* name;
     size_t var_location;
     char op_size;
     int argno;
+    as_value_U value;
+    data_type_T* data_type;
+    int binop_type;
 } as_op_T;
 typedef struct assembly_function_struct {
     char* name;
@@ -33,6 +41,7 @@ typedef struct assembly_function_struct {
     size_t last_stack_offset;
     size_t scope_size;
     char* last_imm_str;
+    char imm_is_mem;
     enum registers {
         REG_IMM,
         REG_AX,
@@ -46,9 +55,10 @@ typedef struct assembly_function_struct {
 } as_function_T;
 typedef struct assembly_data_struct {
     char* name;
-    data_type_T* type;
-    AST_T* value;
+    data_type_T* value_type;
+    as_value_U value;
 } as_data_T;
+
 
 typedef struct assembly_file_struct {
     list_T* functions;
@@ -65,14 +75,13 @@ void as_add_data(as_file_T* as, as_data_T* data);
 void as_add_function(as_file_T* as, as_function_T* function);
 void as_add_op_to_function(as_function_T* function, as_op_T* op);
 
-void as_compile(as_function_T* as, AST_T* node);
-void as_compile_variable_definition(as_text_T* as, as_function_T* as_function, AST_T* node);
-char* as_compile_ast(as_text_T* as, AST_T* node);
+char* as_compile_to_imm(data_type_T* type, as_value_U value);
+char* as_ensure_no_mem(as_function_T* as_function, char** as_text, as_op_T* as_op);
 void as_compile_data(as_text_T* as, char** as_text, as_data_T* data);
-void as_compile_int(as_text_T* as, as_function_T* as_function, AST_T* node);
-void as_compile_compound(as_text_T* as, as_function_T* as_function, AST_T* node);
 void as_compile_function_definition(as_text_T* as, char** as_text, as_function_T* function);
+void as_compile_binop(as_function_T* as, char** as_text, as_op_T* op, char* src);
 void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op);
 as_text_T* as_compile_file(as_file_T* as);
+char* as_op_type_string(enum op_type type);
 
 #endif
