@@ -1,4 +1,5 @@
 #include "include/AST.h"
+#include "include/errors.h"
 
 AST_T* init_ast(int type) {
     AST_T* ast = calloc(1, sizeof(struct AST_STRUCT));
@@ -107,7 +108,7 @@ enum expr_level ast_expr_level(AST_T* node) {
         case AST_VARIABLE: case AST_FUNCTION_CALL: case AST_INT: case AST_FLOAT: case AST_DOUBLE: case AST_STRING: case AST_NOOP: return EXPR_SINGLE_THING; break;
         case AST_NOT: return EXPR_NOT; break;
         case AST_BINOP: return ast_binop_level(node->binop_type); break;
-        default: printf("Can't get expr level of type %d\n", node->type); exit(3); break;
+        default: err_enum_out_of_range("expression node type", node->type); break;
     }
     return -1;
 }

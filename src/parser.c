@@ -131,7 +131,7 @@ AST_T* parser_parse_expr(parser_T* parser) {
             case TOKEN_TIMES_EQUALS:
             case TOKEN_SLASH_EQUALS: left_hand = parser_parse_variable_assignment(parser, left_hand); break;
             case TOKEN_PLUSPLUS:
-            case TOKEN_MINUSMINUS: exit(3); break;
+            case TOKEN_MINUSMINUS: err_not_implemented("Incrementing or decrementing"); break;
             case TOKEN_LPAREN: left_hand = parser_parse_function_call(parser, left_hand); break;
             default: {
                 if (parser->lexer->newline == NEWLINE) {
@@ -544,7 +544,8 @@ AST_T* parser_parse_header(parser_T* parser, int headers_type) {
             return (void*) 0;
         }
     } else {
-        exit(3);
+        err_not_implemented("Non-normal header parsing\n");
+        return (void*) 0;
     }
 }
 AST_T* parser_parse_header_normal_function(parser_T* parser) {

@@ -84,3 +84,7 @@ void err_no_return_value(data_type_T* return_type) {
     printf(ErrorStart "function sould return %s but does not return a value\n", return_type->type_name);
     exit(1);
 }
+void err_not_implemented(char* feature) {
+    printf(ErrorStart "%s is not implemented yet\n", feature);
+    exit(1);
+}
