@@ -2,7 +2,6 @@
 #define PARSER_H
 #include "AST.h"
 #include "lexer.h"
-#include "data_type.h"
 
 
 typedef struct PARSER_STRUCT {
@@ -20,9 +19,8 @@ void parser_eat(parser_T* parser, int token_type);
 
 AST_T* parser_parse(parser_T* parser);
 
-AST_T* parser_parse_import(parser_T* parser);
-
 AST_T* parser_parse_statement(parser_T* parser);
+AST_T* parser_parse_header(parser_T* parser, int headers_type);
 
 AST_T* parser_parse_id(parser_T* parser);
 AST_T* parser_parse_expr(parser_T* parser);
@@ -40,19 +38,9 @@ AST_T* parser_parse_float(parser_T* parser);
 AST_T* parser_parse_double(parser_T* parser);
 
 AST_T* parser_parse_statements(parser_T* parser);
+AST_T* parser_parse_headers(parser_T* parser, int headers_type);
 
-AST_T* parser_parse_plus(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_minus(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_times(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_slash(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_and(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_or(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_eq(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_neq(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_grt(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_let(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_greq(parser_T* parser, AST_T* left_hand);
-AST_T* parser_parse_leeq(parser_T* parser, AST_T* left_hand);
+AST_T* parser_parse_binop(parser_T* parser, AST_T* left_hand, int op_type);
 
 AST_T* parser_parse_not(parser_T* parser);
 
@@ -63,4 +51,5 @@ AST_T* parser_parse_while(parser_T* parser);
 
 AST_T* parser_parse_return(parser_T* parser);
 
+AST_T* parser_parse_header_normal_function(parser_T* parser);
 #endif

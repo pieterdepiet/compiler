@@ -1,5 +1,4 @@
 #include "include/parser.h"
-#include "include/token.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -114,174 +113,32 @@ AST_T* parser_parse_expr(parser_T* parser) {
         default: err_unexpected_token(parser, -1); break;
     }
     while (parser->current_token->type != TOKEN_RPAREN && parser->current_token->type != TOKEN_SEMI && parser->current_token->type != TOKEN_COMMA && parser->current_token->type != TOKEN_RBRACE && parser->current_token->type != TOKEN_RBRACKET) {
-        AST_T** last_hand = &left_hand;
+        AST_T* last_hand = left_hand;
         switch (parser->current_token->type) {
-            case TOKEN_PLUS: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_TERM) {
-                        *last_hand = parser_parse_plus(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &((*last_hand)->right_hand);
-                    }
-                }
-                break;
-            }
-            case TOKEN_MINUS: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_TERM) {
-                        *last_hand = parser_parse_minus(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_TIMES: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_MULDIV) {
-                        *last_hand = parser_parse_times(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_SLASH: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_MULDIV) {
-                        *last_hand = parser_parse_slash(parser, *last_hand);
-                        break;
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
+            case TOKEN_PLUS: left_hand = parser_parse_binop(parser, left_hand, BINOP_PLUS); break;
+            case TOKEN_MINUS: left_hand = parser_parse_binop(parser, left_hand, BINOP_MINUS); break;
+            case TOKEN_TIMES: left_hand = parser_parse_binop(parser, left_hand, BINOP_TIMES); break;
+            case TOKEN_SLASH: left_hand = parser_parse_binop(parser, left_hand, BINOP_DIV); break;
+            case TOKEN_EQEQ: left_hand = parser_parse_binop(parser, left_hand, BINOP_EQEQ); break;
+            case TOKEN_NEQ: left_hand = parser_parse_binop(parser, left_hand, BINOP_NEQ); break;
+            case TOKEN_GRT: left_hand = parser_parse_binop(parser, left_hand, BINOP_GRT); break;
+            case TOKEN_LET: left_hand = parser_parse_binop(parser, left_hand, BINOP_LET); break;
+            case TOKEN_GREQ: left_hand = parser_parse_binop(parser, left_hand, BINOP_GREQ); break;
+            case TOKEN_LEEQ: left_hand = parser_parse_binop(parser, left_hand, BINOP_LEEQ); break;
             case TOKEN_EQUALS:
             case TOKEN_PLUS_EQUALS:
             case TOKEN_MINUS_EQUALS:
             case TOKEN_TIMES_EQUALS:
-            case TOKEN_SLASH_EQUALS:
+            case TOKEN_SLASH_EQUALS: left_hand = parser_parse_variable_assignment(parser, left_hand); break;
             case TOKEN_PLUSPLUS:
-            case TOKEN_MINUSMINUS: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) <= EXPR_SINGLE_THING) {
-                        *last_hand = parser_parse_variable_assignment(parser, *last_hand);
-                        break;
-                    } else {
-                        last_hand = &((*last_hand)->right_hand);
-                    }
-                }
-                break;
-            }
-            case TOKEN_LPAREN: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) <= EXPR_SINGLE_THING) {
-                        *last_hand = parser_parse_function_call(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_EQEQ: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_COMPARISON) {
-                        *last_hand = parser_parse_eq(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_NEQ: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_COMPARISON) {
-                        *last_hand = parser_parse_neq(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_GRT: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_COMPARISON) {
-                        *last_hand = parser_parse_grt(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_LET: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_COMPARISON) {
-                        *last_hand = parser_parse_let(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_GREQ: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_COMPARISON) {
-                        *last_hand = parser_parse_greq(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_LEEQ: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_COMPARISON) {
-                        *last_hand = parser_parse_leeq(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_ANDAND: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_BOOLOPERATION) {
-                        *last_hand = parser_parse_and(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
-            case TOKEN_OROR: {
-                while (1) {
-                    if (ast_expr_level((*last_hand)) < EXPR_BOOLOPERATION) {
-                        *last_hand = parser_parse_or(parser, *last_hand);
-                        break;    
-                    } else {
-                        last_hand = &(*last_hand)->right_hand;
-                    }
-                }
-                break;
-            }
+            case TOKEN_MINUSMINUS: exit(3); break;
+            case TOKEN_LPAREN: left_hand = parser_parse_function_call(parser, left_hand); break;
             default: {
                 if (parser->lexer->newline == NEWLINE) {
                     left_hand->parenthetical = PARENTHETICAL;
                     return left_hand;
                 } else {
-                    err_unexpected_token(parser, -1);
+                    err_unexpected_token(parser, TOKEN_SEMI);
                 }
                 break;
             }
@@ -310,28 +167,42 @@ AST_T* parser_parse_variable_definition(parser_T* parser) {
     return ast_variable_definition;
 }
 AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
-    AST_T* ast_variable_assignment = init_ast(AST_VARIABLE_ASSIGNMENT);
-    ast_variable_assignment->left_hand = variable;
+    AST_T* ast_variable_assignment = init_ast(AST_BINOP);
+    ast_variable_assignment->binop_type = BINOP_ASSIGN;
     int assignment_type;
     switch (parser->current_token->type) {
-        case TOKEN_EQUALS: parser_eat(parser, TOKEN_EQUALS); ast_variable_assignment->right_hand = parser_parse_expr(parser); return ast_variable_assignment; break;
-        // case TOKEN_PLUS_EQUALS: parser_eat(parser, TOKEN_PLUS_EQUALS); assignment_type = AST_PLUS; break;
-        // case TOKEN_MINUS_EQUALS: parser_eat(parser, TOKEN_MINUS_EQUALS); assignment_type = AST_MINUS; break;
-        // case TOKEN_TIMES_EQUALS: parser_eat(parser, TOKEN_TIMES_EQUALS); assignment_type = AST_TIMES; break;
-        // case TOKEN_SLASH_EQUALS: parser_eat(parser, TOKEN_SLASH_EQUALS); assignment_type = AST_SLASH; break;
-        // case TOKEN_PLUSPLUS: parser_eat(parser, TOKEN_PLUSPLUS); assignment_type = AST_PLUS; break;
-        // case TOKEN_MINUSMINUS: parser_eat(parser, TOKEN_MINUSMINUS); assignment_type = AST_MINUS; break;
+        case TOKEN_EQUALS: parser_eat(parser, TOKEN_EQUALS); assignment_type = -1; break;
+        case TOKEN_PLUS_EQUALS: parser_eat(parser, TOKEN_PLUS_EQUALS); assignment_type = BINOP_PLUS; break;
+        case TOKEN_MINUS_EQUALS: parser_eat(parser, TOKEN_MINUS_EQUALS); assignment_type = BINOP_MINUS; break;
+        case TOKEN_TIMES_EQUALS: parser_eat(parser, TOKEN_TIMES_EQUALS); assignment_type = BINOP_TIMES; break;
+        case TOKEN_SLASH_EQUALS: parser_eat(parser, TOKEN_SLASH_EQUALS); assignment_type = BINOP_DIV; break;
         default: err_unexpected_token(parser, -1); break;
     }
-    ast_variable_assignment->right_hand = init_ast(assignment_type);
-    ast_variable_assignment->right_hand->left_hand = init_ast(AST_VARIABLE);
-    ast_variable_assignment->right_hand->left_hand = variable;
-    switch (parser->prev_token->type) {
-        case TOKEN_PLUSPLUS: case TOKEN_MINUSMINUS: ast_variable_assignment->right_hand->right_hand = ast_create_int(1); break;
-        default: ast_variable_assignment->right_hand->right_hand = parser_parse_expr(parser); break;
+    if (assignment_type < 0) {
+        ast_variable_assignment->right_hand = parser_parse_expr(parser);
+    } else {
+        ast_variable_assignment->right_hand = init_ast(AST_BINOP);
+        ast_variable_assignment->right_hand->binop_type = assignment_type;
+        ast_variable_assignment->right_hand->right_hand = parser_parse_expr(parser);
     }
-    
-    return ast_variable_assignment;
+    if (ast_expr_level(variable) <= EXPR_SINGLE_THING) {
+        ast_variable_assignment->left_hand = variable;
+        if (assignment_type >= 0) {
+            ast_variable_assignment->right_hand->left_hand = variable;
+        }
+        return ast_variable_assignment;
+    } else {
+        AST_T* last_variable = variable;
+        while (1) {
+            if (ast_expr_level(last_variable->right_hand) <= EXPR_SINGLE_THING) {
+                ast_variable_assignment->left_hand = last_variable->right_hand;
+                last_variable->right_hand = ast_variable_assignment;
+                return variable;
+            } else {
+                last_variable = last_variable->right_hand;
+            }
+        }
+    }
 }
 AST_T* parser_parse_function_definition(parser_T* parser) {
     AST_T* ast_function_definition = init_ast(AST_FUNCTION_DEFINITION);
@@ -393,6 +264,8 @@ AST_T* parser_parse_function_definition(parser_T* parser) {
         parser_eat(parser, TOKEN_COLON);
         ast_function_definition->function_definition_return_type = parser->current_token->value;
         parser_eat(parser, TOKEN_ID);
+    } else {
+        ast_function_definition->function_definition_return_type = (void*) 0;
     }
     parser_eat(parser, TOKEN_LBRACE);
     ast_function_definition->function_definition_body = parser_parse_statements(parser);
@@ -409,56 +282,69 @@ AST_T* parser_parse_variable(parser_T* parser) {
 }
 AST_T* parser_parse_function_call(parser_T* parser, AST_T* function) {
     AST_T* function_call = init_ast(AST_FUNCTION_CALL);
-    function_call->function_call_function = function;
+    
     parser_eat(parser, TOKEN_LPAREN);
     if (parser->current_token->type == TOKEN_RPAREN) {
         parser_eat(parser, TOKEN_RPAREN);
-        return function_call;
-    }
-    while (parser->prev_token->type != TOKEN_RPAREN)
-    {
-        if (parser->current_token->type == TOKEN_ID) {
-            parser_eat(parser, TOKEN_ID);
-            if (parser->current_token->type == TOKEN_COLON) {
-                parser_go_back(parser);
-                break;
+    } else {
+        while (parser->prev_token->type != TOKEN_RPAREN) {
+            if (parser->current_token->type == TOKEN_ID) {
+                parser_eat(parser, TOKEN_ID);
+                if (parser->current_token->type == TOKEN_COLON) {
+                    parser_go_back(parser);
+                    break;
+                } else {
+                    parser_go_back(parser);
+                }
+            }
+            AST_T* ast_expr = parser_parse_expr(parser);
+            function_call->function_call_unnamed_size += 1;
+            function_call->function_call_unnamed_values = realloc(function_call->function_call_unnamed_values, function_call->function_call_unnamed_size * sizeof(AST_T*));
+            function_call->function_call_unnamed_values[function_call->function_call_unnamed_size-1] = ast_expr;
+
+            if (parser->current_token->type == TOKEN_COMMA) {
+                parser_eat(parser, TOKEN_COMMA);
+            } else if (parser->current_token->type == TOKEN_RPAREN) {
+                parser_eat(parser, TOKEN_RPAREN);
             } else {
-                parser_go_back(parser);
+                err_unexpected_token(parser, -1);
             }
         }
-        AST_T* ast_expr = parser_parse_expr(parser);
-        function_call->function_call_unnamed_size += 1;
-        function_call->function_call_unnamed_values = realloc(function_call->function_call_unnamed_values, function_call->function_call_unnamed_size * sizeof(AST_T*));
-        function_call->function_call_unnamed_values[function_call->function_call_unnamed_size-1] = ast_expr;
+        while (parser->prev_token->type != TOKEN_RPAREN) {
+            parser_eat(parser, TOKEN_ID);
+            function_call->function_call_named_size++;
+            function_call->function_call_named_names = realloc(function_call->function_call_named_names, function_call->function_call_named_size * sizeof(char*));
+            function_call->function_call_named_names[function_call->function_call_named_size-1] = parser->current_token->value;
+            parser_eat(parser, TOKEN_COLON);
+            AST_T* ast_expr = parser_parse_expr(parser);
+            function_call->function_call_named_values = realloc(function_call->function_call_named_values, function_call->function_call_named_size * sizeof(char*));
+            function_call->function_call_named_values[function_call->function_call_named_size-1] = ast_expr;
 
-        if (parser->current_token->type == TOKEN_COMMA) {
-            parser_eat(parser, TOKEN_COMMA);
-        } else if (parser->current_token->type == TOKEN_RPAREN) {
-            parser_eat(parser, TOKEN_RPAREN);
-        } else {
-            err_unexpected_token(parser, -1);
+            if (parser->current_token->type == TOKEN_COMMA) {
+                parser_eat(parser, TOKEN_COMMA);
+            } else if (parser->current_token->type == TOKEN_RPAREN) {
+                parser_eat(parser, TOKEN_RPAREN);
+            } else {
+                err_unexpected_token(parser, -1);
+            }
         }
     }
-    while (parser->prev_token->type != TOKEN_RPAREN)
-    {
-        parser_eat(parser, TOKEN_ID);
-        function_call->function_call_named_size++;
-        function_call->function_call_named_names = realloc(function_call->function_call_named_names, function_call->function_call_named_size * sizeof(char*));
-        function_call->function_call_named_names[function_call->function_call_named_size-1] = parser->current_token->value;
-        parser_eat(parser, TOKEN_COLON);
-        AST_T* ast_expr = parser_parse_expr(parser);
-        function_call->function_call_named_values = realloc(function_call->function_call_named_values, function_call->function_call_named_size * sizeof(char*));
-        function_call->function_call_named_values[function_call->function_call_named_size-1] = ast_expr;
-
-        if (parser->current_token->type == TOKEN_COMMA) {
-            parser_eat(parser, TOKEN_COMMA);
-        } else if (parser->current_token->type == TOKEN_RPAREN) {
-            parser_eat(parser, TOKEN_RPAREN);
-        } else {
-            err_unexpected_token(parser, -1);
+    if (ast_expr_level(function) <= EXPR_SINGLE_THING) {
+        function_call->function_call_function = function;
+        return function_call;
+    } else {
+        AST_T* last_function = function;
+        while (1) {
+            if (ast_expr_level(last_function->right_hand) <= EXPR_SINGLE_THING) {
+                function_call->function_call_function = last_function->right_hand;
+                last_function->right_hand = function_call;
+                break;
+            } else {
+                last_function = last_function->right_hand;
+            }
         }
+        return function;
     }
-    return function_call;
 }
 
 AST_T* parser_parse_string(parser_T* parser) {
@@ -531,192 +417,45 @@ AST_T* parser_parse_statements(parser_T* parser) {
         compound->compound_size += 1;
         compound->compound_value = realloc(compound->compound_value, compound->compound_size * sizeof(struct AST_STRUCT*));
         compound->compound_value[compound->compound_size-1] = ast_statement;
-        if (parser->prev_token->type != TOKEN_RBRACE) {
+        if (parser->current_token->type == TOKEN_SEMI) {
             parser_eat(parser, TOKEN_SEMI);
+        } else if (parser->prev_token->type != TOKEN_RBRACE && !parser->lexer->newline) {
+            err_unexpected_token(parser, TOKEN_SEMI);
         }
     }
     return compound;
 }
 
-AST_T* parser_parse_plus(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_plus = init_ast(AST_PLUS);
-    ast_plus->left_hand = left_hand;
-    parser_eat(parser, TOKEN_PLUS);
+AST_T* parser_parse_binop(parser_T* parser, AST_T* left_hand, int op_type) {
+    AST_T* ast_binop = init_ast(AST_BINOP);
+    ast_binop->binop_type = op_type;
+    parser_eat(parser, parser->current_token->type); // Just advance
     switch (parser->current_token->type) {
-        case TOKEN_ID: ast_plus->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_plus->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_plus->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_plus->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_plus->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_plus->right_hand = parser_parse_expr(parser); break;
+        case TOKEN_ID: ast_binop->right_hand = parser_parse_id(parser); break;
+        case TOKEN_STRING: ast_binop->right_hand = parser_parse_string(parser); break;
+        case TOKEN_INT: ast_binop->right_hand = parser_parse_int(parser); break;
+        case TOKEN_FLOAT: ast_binop->right_hand = parser_parse_float(parser); break;
+        case TOKEN_DOUBLE: ast_binop->right_hand = parser_parse_double(parser); break;
+        case TOKEN_LPAREN: ast_binop->right_hand = parser_parse_expr(parser); break;
         default: err_unexpected_token(parser, -1); break;
     }
-    return ast_plus;
-}
-AST_T* parser_parse_minus(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_minus = init_ast(AST_MINUS);
-    ast_minus->left_hand = left_hand;
-    parser_eat(parser, TOKEN_MINUS);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_minus->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_minus->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_minus->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_minus->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_minus->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_minus->right_hand = parser_parse_expr(parser); break;
-        default: err_unexpected_token(parser, -1); break;
+    int op_lvl = ast_binop_level(op_type);
+    if (ast_expr_level(left_hand) < op_lvl) {
+        ast_binop->left_hand = left_hand;
+        return ast_binop;
+    } else {
+        AST_T* last_hand = left_hand;
+        while (1) {
+            if (ast_expr_level(last_hand->right_hand) < op_lvl) {
+                ast_binop->left_hand = last_hand->right_hand;
+                last_hand->right_hand = ast_binop;
+                break;
+            } else {
+                last_hand = last_hand->right_hand;
+            }
+        }
+        return left_hand;
     }
-    return ast_minus;
-}
-AST_T* parser_parse_times(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_times = init_ast(AST_TIMES);
-    ast_times->left_hand = left_hand;
-    parser_eat(parser, TOKEN_TIMES);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_times->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_times->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_times->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_times->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_times->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_times->right_hand = parser_parse_expr(parser); break;
-        default: err_unexpected_token(parser, -1); break;
-    }
-    return ast_times;
-}
-AST_T* parser_parse_slash(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_slash = init_ast(AST_SLASH);
-    ast_slash->left_hand = left_hand;
-    parser_eat(parser, TOKEN_SLASH);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_slash->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_slash->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_slash->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_slash->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_slash->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_slash->right_hand = parser_parse_expr(parser); break;
-        default: err_unexpected_token(parser, -1); break;
-    }
-    return ast_slash;
-}
-AST_T* parser_parse_and(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_and = init_ast(AST_AND);
-    ast_and->left_hand = left_hand;
-    parser_eat(parser, TOKEN_ANDAND);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_and->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_and->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_and->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_and->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_and->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_and->right_hand = parser_parse_expr(parser); break;
-        default: err_unexpected_token(parser, -1); break;
-    }
-    return ast_and;
-}
-AST_T* parser_parse_or(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_or = init_ast(AST_OR);
-    ast_or->left_hand = left_hand;
-    parser_eat(parser, TOKEN_OROR);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_or->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_or->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_or->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_or->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_or->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_or->right_hand = parser_parse_expr(parser); break;
-        default: err_unexpected_token(parser, -1); break;
-    }
-    return ast_or;
-}
-AST_T* parser_parse_eq(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_eq = init_ast(AST_EQ);
-    ast_eq->left_hand = left_hand;
-    parser_eat(parser, TOKEN_EQEQ);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_eq->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_eq->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_eq->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_eq->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_eq->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_eq->right_hand = parser_parse_expr(parser); break;
-        default: break;
-    }
-    return ast_eq;
-}
-AST_T* parser_parse_neq(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_neq = init_ast(AST_NEQ);
-    ast_neq->left_hand = left_hand;
-    parser_eat(parser, TOKEN_NEQ);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_neq->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_neq->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_neq->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_neq->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_neq->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_neq->right_hand = parser_parse_expr(parser); break;
-        default: break;
-    }
-    return ast_neq;
-}
-AST_T* parser_parse_grt(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_grt = init_ast(AST_GRT);
-    ast_grt->left_hand = left_hand;
-    parser_eat(parser, TOKEN_GRT);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_grt->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_grt->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_grt->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_grt->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_grt->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_grt->right_hand = parser_parse_expr(parser); break;
-        default: err_unexpected_token(parser, -1); break;
-    }
-    return ast_grt;
-}
-AST_T* parser_parse_let(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_let = init_ast(AST_LET);
-    ast_let->left_hand = left_hand;
-    parser_eat(parser, TOKEN_LET);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_let->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_let->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_let->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_let->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_let->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_let->right_hand = parser_parse_expr(parser); break;
-        default: err_unexpected_token(parser, -1); break;
-    }
-    return ast_let;
-}
-AST_T* parser_parse_greq(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_greq = init_ast(AST_GREQ);
-    ast_greq->left_hand = left_hand;
-    parser_eat(parser, TOKEN_GREQ);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_greq->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_greq->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_greq->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_greq->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_greq->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_greq->right_hand = parser_parse_expr(parser); break;
-        default: break;
-    }
-    return ast_greq;
-}
-AST_T* parser_parse_leeq(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_leeq = init_ast(AST_LEEQ);
-    ast_leeq->left_hand = left_hand;
-    parser_eat(parser, TOKEN_LEEQ);
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_leeq->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_leeq->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_leeq->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_leeq->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_leeq->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_leeq->right_hand = parser_parse_expr(parser); break;
-        default: break;
-    }
-    return ast_leeq;
 }
 AST_T* parser_parse_not(parser_T* parser) {
     AST_T* ast_not = init_ast(AST_NOT);
@@ -794,4 +533,88 @@ AST_T* parser_parse_return(parser_T* parser) {
     AST_T* ast_return = init_ast(AST_RETURN);
     ast_return->return_value = parser_parse_expr(parser);
     return ast_return;
+}
+
+AST_T* parser_parse_header(parser_T* parser, int headers_type) {
+    if (headers_type == HEADER_NORMAL) {
+        if (utils_strcmp(parser->current_token->value, "fun")) {
+            return parser_parse_header_normal_function(parser);
+        } else {
+            err_unexpected_token(parser, TOKEN_ID);
+            return (void*) 0;
+        }
+    } else {
+        exit(3);
+    }
+}
+AST_T* parser_parse_header_normal_function(parser_T* parser) {
+    AST_T* ast_header = init_ast(AST_HEADER);
+    parser_eat(parser, TOKEN_ID);
+    ast_header->header_function_name = parser->current_token->value;
+    parser_eat(parser, TOKEN_ID);
+    parser_eat(parser, TOKEN_LPAREN);
+    while (parser->current_token->type != TOKEN_RPAREN) {
+        if (parser->current_token->type != TOKEN_UNDERSCORE) {
+            break;
+        }
+        parser_eat(parser, TOKEN_UNDERSCORE);
+        char* arg_name = parser->current_token->value;
+        parser_eat(parser, TOKEN_ID);
+        parser_eat(parser, TOKEN_COLON);
+        char* arg_type = parser->current_token->value;
+        parser_eat(parser, TOKEN_ID);
+        ast_header->header_function_args->unnamed_size += 1;
+        ast_header->header_function_args->unnamed_names = realloc(ast_header->header_function_args->unnamed_names, ast_header->header_function_args->unnamed_size * sizeof(char*));
+        ast_header->header_function_args->unnamed_types = realloc(ast_header->header_function_args->unnamed_types, ast_header->header_function_args->unnamed_size * sizeof(char*));
+        ast_header->header_function_args->unnamed_names[ast_header->header_function_args->unnamed_size-1] = arg_name;
+        ast_header->header_function_args->unnamed_types[ast_header->header_function_args->unnamed_size-1] = arg_type;
+        if (parser->current_token->type == TOKEN_COMMA) {
+            parser_eat(parser, TOKEN_COMMA);
+        } else if (parser->current_token->type != TOKEN_RPAREN) {
+            err_unexpected_token(parser, -1);
+        }
+    }
+    while (parser->current_token->type != TOKEN_RPAREN) {
+        char* public_name = parser->current_token->value;
+        char* inside_name;
+        parser_eat(parser, TOKEN_ID);
+        if (parser->current_token->type == TOKEN_ID) {
+            inside_name = parser->current_token->value;
+            parser_eat(parser, TOKEN_ID);
+        } else {
+            inside_name = public_name;
+        }
+        parser_eat(parser, TOKEN_COLON);
+        char* arg_type = parser->current_token->value;
+        parser_eat(parser, TOKEN_ID);
+        ast_header->header_function_args->named_size += 1;
+        ast_header->header_function_args->named_inside_names = realloc(ast_header->header_function_args->named_inside_names, ast_header->header_function_args->named_size * sizeof(char*));
+        ast_header->header_function_args->named_public_names = realloc(ast_header->header_function_args->named_public_names, ast_header->header_function_args->named_size * sizeof(char*));
+        ast_header->header_function_args->named_types = realloc(ast_header->header_function_args->named_types, ast_header->header_function_args->named_size * sizeof(char*));
+        ast_header->header_function_args->named_inside_names[ast_header->header_function_args->named_size-1] = inside_name;
+        ast_header->header_function_args->named_public_names[ast_header->header_function_args->named_size-1] = public_name;
+        ast_header->header_function_args->named_types[ast_header->header_function_args->named_size-1] = arg_type;
+        if (parser->current_token->type == TOKEN_COMMA) {
+            parser_eat(parser, TOKEN_COMMA);
+        } else if (parser->current_token->type != TOKEN_RPAREN) {
+            err_unexpected_token(parser, -1);
+        }
+    }
+    parser_eat(parser, TOKEN_RPAREN);
+    if (parser->current_token->type == TOKEN_COLON) {
+        parser_eat(parser, TOKEN_COLON);
+        ast_header->header_function_return_type = parser->current_token->value;
+        parser_eat(parser, TOKEN_ID);
+    }
+    return ast_header;
+}
+AST_T* parser_parse_headers(parser_T* parser, int headers_type) {
+    AST_T* headers = init_ast(AST_HEADER_LIST);
+    while (parser->current_token->type != TOKEN_EOF) {
+        AST_T* ast_header = parser_parse_header(parser, headers_type);
+        headers->headers_size += 1;
+        headers->headers_value = realloc(headers->headers_value, headers->headers_size * sizeof(AST_T*));
+        headers->headers_value[headers->headers_size-1] = ast_header;
+    }
+    return headers;
 }

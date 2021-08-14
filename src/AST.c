@@ -8,7 +8,6 @@ AST_T* init_ast(int type) {
     ast->variable_definition_type = (void*) 0;
     ast->variable_definition_name = (void*) 0;
     ast->variable_definition_value = (void*) 0;
-    // AST_VARIABLE_ASSIGNMENT
     // AST_VARIABLE
     ast->variable_name = (void*) 0;
     // AST_FUNCTION_CALL
@@ -33,7 +32,6 @@ AST_T* init_ast(int type) {
     // AST_COMPOUND
     ast->compound_value = (void*) 0;
     ast->compound_size = 0;
-    ast->compound_scope = (void*) 0;
 
     // AST_PLUS, AST_MINUS, AST_TIMES, AST_SLASH, AST_EQ, AST_NEQ, AST_GRT, AST_LET, AST_GREQ, AST_LEEQ, AST_AND, AST_OR
     ast->left_hand = (void*) 0;
@@ -88,7 +86,19 @@ AST_T* ast_create_string(char* str) {
     ast_string->string_value = str;
     return ast_string;
 }
-
+enum expr_level ast_binop_level(int binop_type) {
+    if (binop_type <= BINOP_DIV) {
+        return EXPR_MULDIV;
+    } else if (binop_type <= BINOP_MINUS) {
+        return EXPR_TERM;
+    } else if (binop_type <= BINOP_LEEQ) {
+        return EXPR_COMPARISON;
+    } else if (binop_type <= BINOP_OR) {
+        return EXPR_BOOLOPERATION;
+    } else {
+        return EXPR_VARIABLE_ASSIGNMENT;
+    }
+}
 enum expr_level ast_expr_level(AST_T* node) {
     if (node->parenthetical == PARENTHETICAL) {
         return EXPR_SINGLE_THING;
@@ -96,11 +106,7 @@ enum expr_level ast_expr_level(AST_T* node) {
     switch (node->type) {
         case AST_VARIABLE: case AST_FUNCTION_CALL: case AST_INT: case AST_FLOAT: case AST_DOUBLE: case AST_STRING: case AST_NOOP: return EXPR_SINGLE_THING; break;
         case AST_NOT: return EXPR_NOT; break;
-        case AST_TIMES: case AST_SLASH: return EXPR_MULDIV; break;
-        case AST_PLUS: case AST_MINUS: return EXPR_TERM; break;
-        case AST_EQ: case AST_NEQ: case AST_GRT: case AST_LET: case AST_GREQ: case AST_LEEQ: return EXPR_COMPARISON;
-        case AST_AND: case AST_OR: return EXPR_BOOLOPERATION; break;
-        case AST_VARIABLE_ASSIGNMENT: return EXPR_VARIABLE_ASSIGNMENT; break;
+        case AST_BINOP: return ast_binop_level(node->binop_type); break;
         default: printf("Can't get expr level of type %d\n", node->type); exit(3); break;
     }
     return -1;
