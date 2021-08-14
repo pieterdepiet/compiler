@@ -34,9 +34,9 @@ void err_unexpected_as_op(as_op_T* as_op) {
     exit(1);
 }
 void err_bad_global_type(data_type_T* data_type) {
-    if (data_type) {
+    // if (data_type) {
         printf("Error: bad type '%s' for global variable\n", data_type->type_name);
-    }
+    // }
     exit(1);
 }
 void err_bad_immediate(AST_T* node) {
@@ -78,5 +78,9 @@ void err_too_many_args_in_fcall(void) {
 }
 void err_reg_full() {
     printf(ErrorStart "out of math register. Try shortening or spreading your calculation\n");
+    exit(1);
+}
+void err_no_return_value(data_type_T* return_type) {
+    printf(ErrorStart "function sould return %s but does not return a value\n", return_type->type_name);
     exit(1);
 }

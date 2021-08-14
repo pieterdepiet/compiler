@@ -23,5 +23,6 @@ void err_enum_out_of_range(char* enum_name, int enum_value);
 void err_no_named_arg(char* name);
 void err_too_many_args_in_fcall(void);
 void err_reg_full();
+void err_no_return_value(data_type_T* return_type);
 
 #endif
