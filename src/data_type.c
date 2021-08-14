@@ -7,7 +7,7 @@ data_type_T* init_data_type(int primitive_type, char* type_name) {
     data_type->class_member_names = (void*) 0;
     data_type->class_member_types = (void*) 0;
     data_type->class_members_size = 0;
-    data_type->type_name = (void*) 0;
+    data_type->type_name = type_name;
     return data_type;
 }
 fspec_T* init_fspec(data_type_T* return_type) {
