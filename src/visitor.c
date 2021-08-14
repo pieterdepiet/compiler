@@ -23,7 +23,9 @@ visitor_T* init_visitor(as_file_T* as_file) {
     return visitor;
 }
 data_type_T* get_data_type(visitor_T* visitor, scope_T* scope, char* name) {
-    if (utils_strcmp(name, "Int")) {
+    if (name == (void*) 0) {
+        return (void*) 0;
+    } else if (utils_strcmp(name, "Int")) {
         return visitor->int_type;
     } else {
         return (void*) 0;
@@ -78,13 +80,25 @@ data_type_T* visitor_visit(visitor_T* visitor, scope_T* scope, AST_T* node, as_f
     switch (node->type) {
         case AST_INT: return visitor_visit_int(visitor, scope, node, as_function); break;
         case AST_VARIABLE_DEFINITION: return visitor_visit_variable_definition(visitor, scope, node, as_function); break;
-        case AST_VARIABLE_ASSIGNMENT: return visitor_visit_variable_assignment(visitor, scope, node, as_function); break;
         case AST_VARIABLE: return visitor_visit_variable(visitor, scope, node, as_function); break;
         case AST_FUNCTION_CALL: return visitor_visit_function_call(visitor, scope, node, as_function); break;
-        case AST_PLUS: return visitor_visit_plus(visitor, scope, node, as_function); break;
+        case AST_BINOP: return visitor_visit_binop(visitor, scope, node, as_function); break;
         default: err_unexpected_node(node); break;
     }
     return (void*) 0;
+}
+as_value_U visitor_visit_data(visitor_T* visitor, data_type_T* data_type, AST_T* node) {
+    as_value_U value;
+    if (data_type->primitive_type == TYPE_INT) {
+        if (node->type != AST_INT) {
+            err_node_not_convertable_to_data_type(node, data_type);
+        }
+        value.int_value = node->int_value;
+        return value;
+    } else {
+        err_bad_global_type(data_type);
+    }
+    return value;
 }
 data_type_T* visitor_visit_global(visitor_T* visitor, AST_T* root) {
     for (size_t i = 0; i < root->compound_size; i++) {
@@ -93,16 +107,13 @@ data_type_T* visitor_visit_global(visitor_T* visitor, AST_T* root) {
             if (!data_type) {
                 err_unknown_type(root->compound_value[i]->variable_definition_type);
             }
-            // data_type_T* value_type = node_to_data_type(visitor, root->compound_value[i]->variable_definition_value);
-            // if (data_type != value_type) {
-            //     err_conflicting_types(data_type, value_type);
-            // }
-            exit(3);
+            if (node_to_data_type(visitor, data_type, root->compound_value[i]->variable_definition_value) != 0) {
+                err_node_not_convertable_to_data_type(root->compound_value[i]->variable_definition_value, data_type);
+            }
             as_data_T* as_data = init_as_data(root->compound_value[i]->variable_definition_name, data_type);
-            as_data->value = root->compound_value[i]->variable_definition_value;
-            // printf("Value %s\n", as_data->value->data_type->type_name);
-            if (as_data->value->data_type != visitor->int_type) {
-                err_bad_global_type(as_data->value->data_type);
+            as_data->value = visitor_visit_data(visitor, data_type, root->compound_value[i]->variable_definition_value);
+            if (data_type != visitor->int_type) {
+                err_bad_global_type(data_type);
             }
             as_add_data(visitor->as_file, as_data);
             scope_add_variable(visitor->global_scope, root->compound_value[i]->variable_definition_name, data_type);
@@ -114,7 +125,12 @@ data_type_T* visitor_visit_global(visitor_T* visitor, AST_T* root) {
 }
 data_type_T* visitor_visit_function_definition(visitor_T* visitor, scope_T* scope, AST_T* node) {
     scope_T* function_scope = init_scope(scope);
-    data_type_T* return_type = get_data_type(visitor, scope, node->function_definition_return_type);
+    data_type_T* return_type;
+    if (node->function_definition_return_type == (void*) 0) {
+        return_type = visitor->null_type;
+    } else {
+        return_type = get_data_type(visitor, scope, node->function_definition_return_type);
+    }
     fspec_T* fspec = init_fspec(return_type);
     if (utils_strcmp(node->function_definition_name, "start")) {
         fspec->symbol_name = "_start";
@@ -159,7 +175,10 @@ data_type_T* visitor_visit_function_definition(visitor_T* visitor, scope_T* scop
         // strcat(fspec->symbol_name, arg_name);
     }
     scope_add_function(scope, node->function_definition_name, fspec);
-    visitor_visit_compound(visitor, function_scope, node->function_definition_body, return_type, as_function);
+    data_type_T* compound_type = visitor_visit_compound(visitor, function_scope, node->function_definition_body, return_type, as_function);
+    if (compound_type == visitor->null_type) {
+        err_no_return_value(return_type);
+    }
     scope_get_scope_size(scope);
     return return_type;
 }
@@ -167,11 +186,12 @@ data_type_T* visitor_visit_compound(visitor_T* visitor, scope_T* scope, AST_T* n
     for (size_t i = 0; i < node->compound_size; i++) {
         if (node->compound_value[i]->type == AST_RETURN) {
             visitor_visit_return(visitor, scope, node->compound_value[i], as_function, return_type);
+            return return_type;
         } else {
             visitor_visit(visitor, scope, node->compound_value[i], as_function);
         }
     }
-    return return_type;
+    return visitor->null_type;
 }
 data_type_T* visitor_visit_return(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function, data_type_T* return_type) {
     data_type_T* value_type = visitor_visit(visitor, scope, node->return_value, as_function);
@@ -184,7 +204,10 @@ data_type_T* visitor_visit_return(visitor_T* visitor, scope_T* scope, AST_T* nod
     return value_type;
 }
 
-data_type_T* visitor_visit_plus(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+data_type_T* visitor_visit_binop(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+    if (node->binop_type == BINOP_ASSIGN) {
+        return visitor_visit_variable_assignment(visitor, scope, node, as_function);
+    }
     data_type_T* left_hand_type = visitor_visit(visitor, scope, node->left_hand, as_function);
     as_op_T* as_op = init_as_op(ASOP_NEXTREG);
     as_op->op_size = left_hand_type->primitive_size;
@@ -193,19 +216,38 @@ data_type_T* visitor_visit_plus(visitor_T* visitor, scope_T* scope, AST_T* node,
     if (left_hand_type != right_hand_type) {
         err_conflicting_types(left_hand_type, right_hand_type);
     }
-    as_op = init_as_op(ASOP_ADD);
+    as_op = init_as_op(ASOP_BINOP);
     as_op->op_size = left_hand_type->primitive_size;
+    as_op->binop_type = node->binop_type;
+    as_op->data_type = left_hand_type;
     as_add_op_to_function(as_function, as_op);
     as_op = init_as_op(ASOP_FREEREG);
     as_add_op_to_function(as_function, as_op);
     return left_hand_type;
 }
+// data_type_T* visitor_visit_plus(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+//     data_type_T* left_hand_type = visitor_visit(visitor, scope, node->left_hand, as_function);
+//     as_op_T* as_op = init_as_op(ASOP_NEXTREG);
+//     as_op->op_size = left_hand_type->primitive_size;
+//     as_add_op_to_function(as_function, as_op);
+//     data_type_T* right_hand_type = visitor_visit(visitor, scope, node->right_hand, as_function);
+//     if (left_hand_type != right_hand_type) {
+//         err_conflicting_types(left_hand_type, right_hand_type);
+//     }
+//     as_op = init_as_op(ASOP_ADD);
+//     as_op->op_size = left_hand_type->primitive_size;
+//     as_add_op_to_function(as_function, as_op);
+//     as_op = init_as_op(ASOP_FREEREG);
+//     as_add_op_to_function(as_function, as_op);
+//     return left_hand_type;
+// }
 data_type_T* visitor_visit_int(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
     as_op_T* asop = init_as_op(ASOP_SETLASTIMM);
-    asop->value = node;
+    asop->op_size = visitor->int_type->primitive_size;
+    asop->data_type = visitor->int_type;
+    asop->value.int_value = node->int_value;
     as_add_op_to_function(as_function, asop);
-    node->data_type = visitor->int_type;
-    return node->data_type;
+    return visitor->int_type;
 }
 data_type_T* visitor_visit_variable_definition(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
     data_type_T* definition_type = get_data_type(visitor, scope, node->variable_definition_type);
@@ -246,7 +288,6 @@ data_type_T* visitor_visit_variable_assignment(visitor_T* visitor, scope_T* scop
 }
 data_type_T* visitor_visit_variable(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
     data_type_T* data_type = scope_get_variable(scope, node->variable_name);
-    node->data_type = data_type;
     as_op_T* as_op = init_as_op(ASOP_VREF);
     as_op->var_location = scope_get_variable_relative_location(scope, node->variable_name);
     as_op->op_size = data_type->primitive_size;
