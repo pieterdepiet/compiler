@@ -197,8 +197,7 @@ token_T* lexer_collect_number(lexer_T* lexer) {
     char* value = calloc(1, sizeof(char));
     value[0] = '\0';
 
-    while (isdigit(lexer->c))
-    {
+    while (isdigit(lexer->c)) {
         char* s = lexer_get_current_char_as_string(lexer);
         value = realloc(value, (strlen(value) + strlen(s) + 1) * sizeof(char));
         strcat(value, s);
@@ -282,7 +281,7 @@ token_T* lexer_read_times(lexer_T* lexer) {
 token_T* lexer_read_slash(lexer_T* lexer) {
     lexer_advance(lexer);
     if (lexer->c=='/') {
-        while (lexer->c != 10) {
+        while (lexer->c != 10 && lexer->c != 0) {
             lexer_advance(lexer);
         }
         return init_token(TOKEN_COMMENT, lexer->empty_string);

@@ -1,7 +1,6 @@
 #ifndef TOKEN_H
 #define TOKEN_H
-typedef struct TOKEN_STRUCT
-{
+typedef struct TOKEN_STRUCT {
     enum token_type {
         TOKEN_ID,
         TOKEN_EQUALS,
@@ -44,7 +43,6 @@ typedef struct TOKEN_STRUCT
         TOKEN_COMMENT,
         TOKEN_UNDERSCORE
     } type;
-
     char* value;
 } token_T;
 

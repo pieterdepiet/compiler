@@ -3,8 +3,7 @@
 #include "token.h"
 
 
-typedef struct LEXER_STRUCT
-{
+typedef struct LEXER_STRUCT {
     char c;
     unsigned int i;
     char* contents;

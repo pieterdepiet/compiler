@@ -1,6 +1,6 @@
 #ifndef SCOPE_H
 #define SCOPE_H
-#include "AST.h"
+#include "data_type.h"
 typedef struct SCOPE_STRUCT {
     char** variable_names;
     data_type_T** variable_types;

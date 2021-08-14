@@ -1,8 +1,6 @@
 #ifndef DATA_TYPE_H
 #define DATA_TYPE_H
 #include <sys/types.h>
-
-#include "list.h"
 typedef struct DATA_TYPE_STRUCT {
     enum {
         TYPE_NULL,
