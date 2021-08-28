@@ -7,8 +7,13 @@ list_T* init_list() {
     return list;
 }
 
-void list_add(list_T* list, void* element) {
+void list_add_list(list_T* list, void* element) {
     list->size++;
     list->el = realloc(list->el, list->size * sizeof(void*));
     list->el[list->size-1] = element;
+}
+void list_add(void* list, size_t* size, void* element) {
+    *size += 1;
+    *((void**)list) = realloc(*((void**) list), *size * sizeof(void*));
+    (*(void***)list)[*size-1] = element;   
 }
