@@ -4,6 +4,7 @@
 #include <math.h>
 #include "include/utils.h"
 #include "include/errors.h"
+#include "include/list.h"
 
 static int powi(int base, int exp) {
     if (exp<1) {
@@ -37,9 +38,7 @@ void parser_eat(parser_T* parser, int token_type) {
         parser->prev_token = parser->current_token;
         parser->current_token_counter += 1;
         if (parser->current_token_counter >= parser->all_tokens_size) {
-            parser->all_tokens_size += 1;
-            parser->all_tokens = realloc(parser->all_tokens, parser->all_tokens_size * sizeof(struct TOKEN_STRUCT*));
-            parser->all_tokens[parser->all_tokens_size-1] = lexer_get_next_token(parser->lexer);
+            list_add(&parser->all_tokens, &parser->all_tokens_size, lexer_get_next_token(parser->lexer));
         }
         parser->current_token = parser->all_tokens[parser->current_token_counter];
         if (parser->current_token->type == TOKEN_COMMENT) {
@@ -71,11 +70,7 @@ AST_T* parser_parse(parser_T* parser) {
 }
 
 AST_T* parser_parse_statement(parser_T* parser) {
-    if (parser->current_token->type == TOKEN_ID) {
-        return parser_parse_id(parser);
-    }
-    err_unexpected_token(parser, -1);
-    return (void*) 0;
+    return parser_parse_expr(parser);
 }
 
 AST_T* parser_parse_id(parser_T* parser) {
@@ -85,8 +80,12 @@ AST_T* parser_parse_id(parser_T* parser) {
         return parser_parse_function_definition(parser);
     } else if (utils_strcmp(parser->current_token->value, "return")) {
         return parser_parse_return(parser);
+    } else if (utils_strcmp(parser->current_token->value, "class")) {
+        return parser_parse_class_definition(parser);
+    } else if (utils_strcmp(parser->current_token->value, "new")) {
+        return parser_parse_new(parser);
     } else {
-        return parser_parse_expr(parser);
+        return parser_parse_variable(parser);
     }
     // if (utils_strcmp(parser->current_token->value, "if")) {
     //     return parser_parse_if(parser);
@@ -108,12 +107,12 @@ AST_T* parser_parse_id(parser_T* parser) {
 AST_T* parser_parse_expr(parser_T* parser) {
     AST_T* left_hand;
     switch (parser->current_token->type) {
-        case TOKEN_ID: left_hand = parser_parse_variable(parser); break;
+        case TOKEN_ID: left_hand = parser_parse_id(parser); break;
         case TOKEN_INT: left_hand = parser_parse_int(parser); break;
+        case TOKEN_LPAREN: parser_eat(parser, TOKEN_LPAREN); left_hand = parser_parse_expr(parser); parser_eat(parser, TOKEN_RPAREN); break;
         default: err_unexpected_token(parser, -1); break;
     }
     while (parser->current_token->type != TOKEN_RPAREN && parser->current_token->type != TOKEN_SEMI && parser->current_token->type != TOKEN_COMMA && parser->current_token->type != TOKEN_RBRACE && parser->current_token->type != TOKEN_RBRACKET) {
-        AST_T* last_hand = left_hand;
         switch (parser->current_token->type) {
             case TOKEN_PLUS: left_hand = parser_parse_binop(parser, left_hand, BINOP_PLUS); break;
             case TOKEN_MINUS: left_hand = parser_parse_binop(parser, left_hand, BINOP_MINUS); break;
@@ -125,6 +124,7 @@ AST_T* parser_parse_expr(parser_T* parser) {
             case TOKEN_LET: left_hand = parser_parse_binop(parser, left_hand, BINOP_LET); break;
             case TOKEN_GREQ: left_hand = parser_parse_binop(parser, left_hand, BINOP_GREQ); break;
             case TOKEN_LEEQ: left_hand = parser_parse_binop(parser, left_hand, BINOP_LEEQ); break;
+            case TOKEN_DOT: left_hand = parser_parse_member(parser, left_hand); break;
             case TOKEN_EQUALS:
             case TOKEN_PLUS_EQUALS:
             case TOKEN_MINUS_EQUALS:
@@ -162,8 +162,14 @@ AST_T* parser_parse_variable_definition(parser_T* parser) {
     parser_eat(parser, TOKEN_COLON);
     ast_variable_definition->variable_definition_type = parser->current_token->value;
     parser_eat(parser, TOKEN_ID); // type
-    parser_eat(parser, TOKEN_EQUALS);
-    ast_variable_definition->variable_definition_value = parser_parse_expr(parser);
+    if (parser->current_token->type == TOKEN_EQUALS) {
+        parser_eat(parser, TOKEN_EQUALS);
+        ast_variable_definition->variable_definition_value = parser_parse_expr(parser);
+    } else if (parser->current_token->type == TOKEN_SEMI || parser->lexer->newline) {
+        ast_variable_definition->variable_definition_value = (void*) 0;
+    } else {
+        err_unexpected_token(parser, TOKEN_EQUALS);
+    }
     return ast_variable_definition;
 }
 AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
@@ -185,7 +191,7 @@ AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
         ast_variable_assignment->right_hand->binop_type = assignment_type;
         ast_variable_assignment->right_hand->right_hand = parser_parse_expr(parser);
     }
-    if (ast_expr_level(variable) <= EXPR_SINGLE_THING) {
+    if (ast_expr_level(variable) <= EXPR_MEMBER) {
         ast_variable_assignment->left_hand = variable;
         if (assignment_type >= 0) {
             ast_variable_assignment->right_hand->left_hand = variable;
@@ -194,9 +200,12 @@ AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
     } else {
         AST_T* last_variable = variable;
         while (1) {
-            if (ast_expr_level(last_variable->right_hand) <= EXPR_SINGLE_THING) {
+            if (ast_expr_level(last_variable->right_hand) <= EXPR_MEMBER) {
                 ast_variable_assignment->left_hand = last_variable->right_hand;
                 last_variable->right_hand = ast_variable_assignment;
+                if (assignment_type >= 0) {
+                    ast_variable_assignment->right_hand->left_hand = last_variable->right_hand;
+                }
                 return variable;
             } else {
                 last_variable = last_variable->right_hand;
@@ -222,11 +231,9 @@ AST_T* parser_parse_function_definition(parser_T* parser) {
         parser_eat(parser, TOKEN_COLON);
         char* arg_type = parser->current_token->value;
         parser_eat(parser, TOKEN_ID);
-        ast_function_definition->function_definition_args->unnamed_size += 1;
-        ast_function_definition->function_definition_args->unnamed_names = realloc(ast_function_definition->function_definition_args->unnamed_names, ast_function_definition->function_definition_args->unnamed_size * sizeof(char*));
-        ast_function_definition->function_definition_args->unnamed_types = realloc(ast_function_definition->function_definition_args->unnamed_types, ast_function_definition->function_definition_args->unnamed_size * sizeof(char*));
-        ast_function_definition->function_definition_args->unnamed_names[ast_function_definition->function_definition_args->unnamed_size-1] = arg_name;
-        ast_function_definition->function_definition_args->unnamed_types[ast_function_definition->function_definition_args->unnamed_size-1] = arg_type;
+        list_add(&ast_function_definition->function_definition_args->unnamed_types, &ast_function_definition->function_definition_args->unnamed_size, arg_type);
+        ast_function_definition->function_definition_args->unnamed_size -= 1;
+        list_add(&ast_function_definition->function_definition_args->unnamed_names, &ast_function_definition->function_definition_args->unnamed_size, arg_name);
         if (parser->current_token->type == TOKEN_COMMA) {
             parser_eat(parser, TOKEN_COMMA);
         } else if (parser->current_token->type != TOKEN_RPAREN) {
@@ -246,13 +253,11 @@ AST_T* parser_parse_function_definition(parser_T* parser) {
         parser_eat(parser, TOKEN_COLON);
         char* arg_type = parser->current_token->value;
         parser_eat(parser, TOKEN_ID);
-        ast_function_definition->function_definition_args->named_size += 1;
-        ast_function_definition->function_definition_args->named_inside_names = realloc(ast_function_definition->function_definition_args->named_inside_names, ast_function_definition->function_definition_args->named_size * sizeof(char*));
-        ast_function_definition->function_definition_args->named_public_names = realloc(ast_function_definition->function_definition_args->named_public_names, ast_function_definition->function_definition_args->named_size * sizeof(char*));
-        ast_function_definition->function_definition_args->named_types = realloc(ast_function_definition->function_definition_args->named_types, ast_function_definition->function_definition_args->named_size * sizeof(char*));
-        ast_function_definition->function_definition_args->named_inside_names[ast_function_definition->function_definition_args->named_size-1] = inside_name;
-        ast_function_definition->function_definition_args->named_public_names[ast_function_definition->function_definition_args->named_size-1] = public_name;
-        ast_function_definition->function_definition_args->named_types[ast_function_definition->function_definition_args->named_size-1] = arg_type;
+        list_add(&ast_function_definition->function_definition_args->named_types, &ast_function_definition->function_definition_args->named_size, arg_type);
+        ast_function_definition->function_definition_args->named_size -= 1;        
+        list_add(&ast_function_definition->function_definition_args->named_public_names, &ast_function_definition->function_definition_args->named_size, public_name);
+        ast_function_definition->function_definition_args->named_size -= 1;        
+        list_add(&ast_function_definition->function_definition_args->named_inside_names, &ast_function_definition->function_definition_args->named_size, inside_name);
         if (parser->current_token->type == TOKEN_COMMA) {
             parser_eat(parser, TOKEN_COMMA);
         } else if (parser->current_token->type != TOKEN_RPAREN) {
@@ -298,9 +303,7 @@ AST_T* parser_parse_function_call(parser_T* parser, AST_T* function) {
                 }
             }
             AST_T* ast_expr = parser_parse_expr(parser);
-            function_call->function_call_unnamed_size += 1;
-            function_call->function_call_unnamed_values = realloc(function_call->function_call_unnamed_values, function_call->function_call_unnamed_size * sizeof(AST_T*));
-            function_call->function_call_unnamed_values[function_call->function_call_unnamed_size-1] = ast_expr;
+            list_add(&function_call->function_call_unnamed_values, &function_call->function_call_unnamed_size, ast_expr);
 
             if (parser->current_token->type == TOKEN_COMMA) {
                 parser_eat(parser, TOKEN_COMMA);
@@ -312,13 +315,11 @@ AST_T* parser_parse_function_call(parser_T* parser, AST_T* function) {
         }
         while (parser->prev_token->type != TOKEN_RPAREN) {
             parser_eat(parser, TOKEN_ID);
-            function_call->function_call_named_size++;
-            function_call->function_call_named_names = realloc(function_call->function_call_named_names, function_call->function_call_named_size * sizeof(char*));
-            function_call->function_call_named_names[function_call->function_call_named_size-1] = parser->current_token->value;
+            list_add(&function_call->function_call_named_names, &function_call->function_call_named_size, parser->current_token->value);
+            function_call->function_call_named_size--;
             parser_eat(parser, TOKEN_COLON);
             AST_T* ast_expr = parser_parse_expr(parser);
-            function_call->function_call_named_values = realloc(function_call->function_call_named_values, function_call->function_call_named_size * sizeof(char*));
-            function_call->function_call_named_values[function_call->function_call_named_size-1] = ast_expr;
+            list_add(&function_call->function_call_named_values, &function_call->function_call_named_size, ast_expr);
 
             if (parser->current_token->type == TOKEN_COMMA) {
                 parser_eat(parser, TOKEN_COMMA);
@@ -329,7 +330,7 @@ AST_T* parser_parse_function_call(parser_T* parser, AST_T* function) {
             }
         }
     }
-    if (ast_expr_level(function) <= EXPR_SINGLE_THING) {
+    if (ast_expr_level(function) <= EXPR_MEMBER) {
         function_call->function_call_function = function;
         return function_call;
     } else {
@@ -414,9 +415,7 @@ AST_T* parser_parse_statements(parser_T* parser) {
 
     while (parser->current_token->type != TOKEN_EOF && parser->current_token->type != TOKEN_RBRACE) {
         AST_T* ast_statement = parser_parse_statement(parser);
-        compound->compound_size += 1;
-        compound->compound_value = realloc(compound->compound_value, compound->compound_size * sizeof(struct AST_STRUCT*));
-        compound->compound_value[compound->compound_size-1] = ast_statement;
+        list_add(&compound->compound_value, &compound->compound_size, ast_statement);
         if (parser->current_token->type == TOKEN_SEMI) {
             parser_eat(parser, TOKEN_SEMI);
         } else if (parser->prev_token->type != TOKEN_RBRACE && !parser->lexer->newline) {
@@ -449,6 +448,28 @@ AST_T* parser_parse_binop(parser_T* parser, AST_T* left_hand, int op_type) {
             if (ast_expr_level(last_hand->right_hand) < op_lvl) {
                 ast_binop->left_hand = last_hand->right_hand;
                 last_hand->right_hand = ast_binop;
+                return left_hand;
+            } else {
+                last_hand = last_hand->right_hand;
+            }
+        }
+    }
+}
+AST_T* parser_parse_member(parser_T* parser, AST_T* left_hand) {
+    AST_T* ast_member = init_ast(AST_MEMBER);
+    parser_eat(parser, TOKEN_DOT);
+    ast_member->member_parent = left_hand;
+    ast_member->member_name = parser->current_token->value;
+    parser_eat(parser, TOKEN_ID);
+    if (ast_expr_level(left_hand) <= EXPR_MEMBER) {
+        ast_member->member_parent = left_hand;
+        return ast_member;
+    } else {
+        AST_T* last_hand = left_hand;
+        while (1) {
+            if (ast_expr_level(last_hand->right_hand) <= EXPR_MEMBER) {
+                ast_member->member_parent = last_hand->right_hand;
+                last_hand->right_hand = ast_member;
                 break;
             } else {
                 last_hand = last_hand->right_hand;
@@ -618,4 +639,59 @@ AST_T* parser_parse_headers(parser_T* parser, int headers_type) {
         headers->headers_value[headers->headers_size-1] = ast_header;
     }
     return headers;
+}
+AST_T* parser_parse_class_definition(parser_T* parser) {
+    AST_T* ast_class_definition = init_ast(AST_CLASS_DEFINITION);
+    parser_eat(parser, TOKEN_ID); // class
+    ast_class_definition->class_name = parser->current_token->value;
+    parser_eat(parser, TOKEN_ID); // <classname>
+    if (parser->current_token->type == TOKEN_COLON) {
+        parser_eat(parser, TOKEN_COLON);
+        do {
+            list_add(&ast_class_definition->class_prototype_names, &ast_class_definition->class_prototype_names_size, parser->current_token->value);
+            parser_eat(parser, TOKEN_ID);
+            if (parser->current_token->type == TOKEN_COMMA) {
+                parser_eat(parser, TOKEN_COMMA);
+            } else if (parser->current_token->type == TOKEN_LBRACE) {
+                parser_eat(parser, TOKEN_LBRACE);
+            } else {
+                err_unexpected_token(parser, TOKEN_LBRACE);
+            }
+        } while (parser->prev_token->type == TOKEN_COMMA);
+    } else {
+        parser_eat(parser, TOKEN_LBRACE);
+    }
+    while (parser->current_token->type != TOKEN_RBRACE) {
+        if (parser->current_token->type == TOKEN_ID) {
+            int is_static = 0;
+            if (utils_strcmp(parser->current_token->value, "static")) {
+                is_static = 1;
+                parser_eat(parser, TOKEN_ID);
+            }
+            if (utils_strcmp(parser->current_token->value, "fun")) {
+                AST_T* ast_function_definition = parser_parse_function_definition(parser);
+                ast_function_definition->function_definition_is_static = is_static;
+                list_add(&ast_class_definition->class_members, &ast_class_definition->class_members_size, ast_function_definition);
+            } else if (utils_strcmp(parser->current_token->value, "var")) {
+                AST_T* ast_variable_definition = parser_parse_variable_definition(parser);
+                ast_variable_definition->variable_definition_is_static = is_static;
+                list_add(&ast_class_definition->class_members, &ast_class_definition->class_members_size, ast_variable_definition);
+                if (parser->current_token->type == TOKEN_SEMI) {
+                    parser_eat(parser, TOKEN_SEMI);
+                } else if (parser->lexer->newline == 0) {
+                    err_unexpected_token(parser, TOKEN_SEMI);
+                }
+            }
+        } else {
+            err_unexpected_token(parser, TOKEN_ID);
+        }
+    }
+    parser_eat(parser, TOKEN_RBRACE);
+    return ast_class_definition;
+}
+AST_T* parser_parse_new(parser_T* parser) {
+    AST_T* ast_new = init_ast(AST_NEW);
+    parser_eat(parser, TOKEN_ID);
+    ast_new->new_function_call = parser_parse_expr(parser);
+    return ast_new;
 }

@@ -41,6 +41,8 @@ AST_T* parser_parse_statements(parser_T* parser);
 AST_T* parser_parse_headers(parser_T* parser, int headers_type);
 
 AST_T* parser_parse_binop(parser_T* parser, AST_T* left_hand, int op_type);
+AST_T* parser_parse_member(parser_T* parser, AST_T* left_hand);
+AST_T* parser_parse_new(parser_T* parser);
 
 AST_T* parser_parse_not(parser_T* parser);
 
@@ -52,4 +54,6 @@ AST_T* parser_parse_while(parser_T* parser);
 AST_T* parser_parse_return(parser_T* parser);
 
 AST_T* parser_parse_header_normal_function(parser_T* parser);
+
+AST_T* parser_parse_class_definition(parser_T* parser);
 #endif
