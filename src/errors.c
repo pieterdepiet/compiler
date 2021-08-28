@@ -97,6 +97,6 @@ void err_empty_class(char* class) {
     exit(1);
 }
 void err_pointer_is_null(char* pointer_description) {
-    printf(ErrorStart "pointer %s is null\n");
+    printf(ErrorStart "pointer %s is null\n", pointer_description);
     exit(1);
 }
