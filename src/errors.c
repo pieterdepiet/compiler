@@ -88,3 +88,15 @@ void err_not_implemented(char* feature) {
     printf(ErrorStart "%s is not implemented yet\n", feature);
     exit(1);
 }
+void err_class_no_member(char* class, char* member) {
+    printf(ErrorStart "class %s has no member %s\n", class, member);
+    exit(1);
+}
+void err_empty_class(char* class) {
+    printf(ErrorStart "type %s needs at least one non-static member\n", class);
+    exit(1);
+}
+void err_pointer_is_null(char* pointer_description) {
+    printf(ErrorStart "pointer %s is null\n");
+    exit(1);
+}

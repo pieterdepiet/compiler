@@ -18,12 +18,14 @@ void err_no_file_specified();
 void err_file_err(int err_number);
 void err_unknown_option(char* option);
 void err_node_not_convertable_to_data_type(AST_T* node, data_type_T* data_type);
-void err_no_info(void);
 void err_enum_out_of_range(char* enum_name, int enum_value);
 void err_no_named_arg(char* name);
 void err_too_many_args_in_fcall(void);
 void err_reg_full();
 void err_no_return_value(data_type_T* return_type);
 void err_not_implemented(char* feature);
+void err_class_no_member(char* class, char* member);
+void err_empty_class(char* class);
+void err_pointer_is_null(char* pointer_description);
 
 #endif
