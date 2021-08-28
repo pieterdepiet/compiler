@@ -15,9 +15,7 @@ arg_options_T* args_parse(int argc, char* argv[]) {
         } else if (argv[i][0] == '-') {
             err_unknown_option(argv[i]);
         } else {
-            args->input_files_size++;
-            args->input_files = realloc(args->input_files, args->input_files_size * sizeof(char*));
-            args->input_files[args->input_files_size-1] = argv[i];
+            list_add(&args->input_files, &args->input_files_size, argv[i]);
         }
     }
     return args;
