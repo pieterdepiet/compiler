@@ -1,8 +1,23 @@
-fun add(_ int1 : Int, to int2 : Int) : Int {
-    return int1 + int2
+class MyClass {
+    var memb1 : Int;
+    var memb2 : Int;
+    fun printmembers() {
+        print(this.memb1);
+        print(this.memb2);
+    }
+    fun incmemb1(by : Int) {
+        this.memb1 += by;
+        this.printmembers();
+    }
+    fun incmemb2(by : Int) {
+        this.memb2 += by;
+        this.printmembers();
+    }
 }
-
-fun start(_ argc : Int) : Int {
-    print(add(10,to: 5));
-    return 0
+fun start() {
+    var a : MyClass = new MyClass();
+    a.incmemb1(by : 5);
+    a.incmemb2(by : 3);
+    a.memb2 = 7;
+    a.memb1.add(4).print();
 }
