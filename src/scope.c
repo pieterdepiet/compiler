@@ -1,6 +1,8 @@
 #include "include/scope.h"
 #include <stdlib.h>
 #include "include/utils.h"
+#include "include/list.h"
+#include <stdio.h>
 
 scope_T* init_scope(scope_T* parent) {
     scope_T* scope = calloc(1, sizeof(struct SCOPE_STRUCT));
@@ -11,24 +13,23 @@ scope_T* init_scope(scope_T* parent) {
 }
 
 void scope_add_variable(scope_T* scope, char* name, data_type_T* type) {
-    scope->variables_size++;
-    scope->variable_names = realloc(scope->variable_names, scope->variables_size * sizeof(char*));
-    scope->variable_types = realloc(scope->variable_types, scope->variables_size * sizeof(data_type_T*));
-    scope->variable_names[scope->variables_size-1] = name;
-    scope->variable_types[scope->variables_size-1] = type;
+    list_add((void***) &scope->variable_types, &scope->variables_size, type);
+    scope->variables_size--;
+    list_add((void***) &scope->variable_names, &scope->variables_size, name);
 }
 void scope_add_function(scope_T* scope, char* name, fspec_T* fspec) {
-    scope->functions_size++;
-    scope->function_names = realloc(scope->function_names, scope->functions_size * sizeof(char*));
-    scope->function_specs = realloc(scope->function_specs, scope->functions_size * sizeof(fspec_T*));
-    scope->function_names[scope->functions_size-1] = name;
-    scope->function_specs[scope->functions_size-1] = fspec;
+    list_add((void***) &scope->function_specs, &scope->functions_size, fspec);
+    scope->functions_size--;
+    list_add((void***) &scope->function_names, &scope->functions_size, name);
 }
 data_type_T* scope_get_variable(scope_T* scope, char* name) {
     for (size_t i = 0; i < scope->variables_size; i++) {
         if (utils_strcmp(name, scope->variable_names[i])) {
             return scope->variable_types[i];
         }
+    }
+    if (scope->parent) {
+        return scope_get_variable(scope->parent, name);
     }
     return (void*) 0;
 }
@@ -59,7 +60,7 @@ size_t scope_get_variable_relative_location(scope_T* scope, char* name) {
     return -1;
 }
 size_t scope_get_scope_size(scope_T* scope) {
-    size_t size;
+    size_t size = 0;
     for (size_t i = 0; i < scope->variables_size; i++) {
         size += scope->variable_types[i]->primitive_size;
     }

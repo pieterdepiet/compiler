@@ -8,6 +8,7 @@ typedef struct SCOPE_STRUCT {
     char** function_names;
     fspec_T** function_specs;
     size_t functions_size;
+    int has_this;
     struct SCOPE_STRUCT* parent;
 } scope_T;
 
