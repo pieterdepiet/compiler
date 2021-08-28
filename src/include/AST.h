@@ -19,10 +19,11 @@ struct SCOPE_STRUCT;
 typedef struct AST_STRUCT {
     enum {
         AST_VARIABLE_DEFINITION, // 0
-        AST_VARIABLE, // 2
-        AST_FUNCTION_CALL, // 3
-        AST_FUNCTION_DEFINITION, // 4
-        
+        AST_VARIABLE, // 1
+        AST_FUNCTION_CALL, // 2
+        AST_FUNCTION_DEFINITION, // 3
+        AST_CLASS_DEFINITION, // 4
+
         AST_STRING, // 5
         AST_INT, // 6
         AST_FLOAT, // 7
@@ -44,13 +45,17 @@ typedef struct AST_STRUCT {
         AST_RETURN, // 18
 
         AST_HEADER_LIST, // 19
-        AST_HEADER // 20
+        AST_HEADER, // 20
+
+        AST_MEMBER, // 21
+        AST_NEW // 22
     } type;
 
     // AST_VARIABLE_DEFINITION
     char* variable_definition_type;
     char* variable_definition_name;
     struct AST_STRUCT* variable_definition_value;
+    int variable_definition_is_static;
     // AST_VARIABLE
     char* variable_name;
     // AST_FUNCTION_CALL
@@ -63,9 +68,9 @@ typedef struct AST_STRUCT {
     // AST_FUNCTION_DEFINITION
     char* function_definition_name;
     struct AST_STRUCT* function_definition_body;
-    // ast_arg_T** function_definition_args;
     ast_arglist_T* function_definition_args;
     char* function_definition_return_type;
+    int function_definition_is_static;
 
     // STRING
     char* string_value;
@@ -94,6 +99,7 @@ typedef struct AST_STRUCT {
     struct AST_STRUCT* left_hand;
     struct AST_STRUCT* right_hand;
     enum {
+        BINOP_MEMBER,
         BINOP_TIMES,
         BINOP_DIV,
         BINOP_PLUS,
@@ -142,6 +148,20 @@ typedef struct AST_STRUCT {
     char* header_function_name;
     ast_arglist_T* header_function_args;
     char* header_function_return_type;
+
+    // AST_CLASS_DEFINITION
+    char* class_name;
+    char** class_prototype_names;
+    size_t class_prototype_names_size;
+    struct AST_STRUCT** class_members;
+    size_t class_members_size;
+
+    // AST_MEMBER
+    struct AST_STRUCT* member_parent;
+    char* member_name;
+
+    // AST_NEW
+    struct AST_STRUCT* new_function_call;
 } AST_T;
 
 AST_T* init_ast(int type);
@@ -154,6 +174,7 @@ AST_T* ast_get_copy(AST_T* source);
 
 enum expr_level {
     EXPR_SINGLE_THING,
+    EXPR_MEMBER,
     EXPR_NOT,
     EXPR_MULDIV,
     EXPR_TERM,
