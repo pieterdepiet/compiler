@@ -25,10 +25,17 @@ typedef struct ASSEMBLY_OPERATION_STRUCT {
         ASOP_RETVAL, // 8
         ASOP_NEXTREG, // 9
         ASOP_FREEREG, // 10
-        ASOP_BINOP // 11
+        ASOP_BINOP, // 11
+        ASOP_RETNULL, // 12
+        ASOP_VDEFNULL, // 13
+        ASOP_NEW, // 14
+        ASOP_MEMBREF, // 15
+        ASOP_SETDEST, // 16
+        ASOP_FREEDEST // 17
     } type;
     char* name;
     size_t var_location;
+    size_t memb_offset;
     char op_size;
     int argno;
     as_value_U value;
@@ -40,10 +47,14 @@ typedef struct assembly_function_struct {
     list_T* operations;
     size_t last_stack_offset;
     size_t scope_size;
+    size_t argc;
     char* last_imm_str;
-    char imm_is_mem;
+    size_t mem_loc;
+    int memb_offset;
     enum registers {
         REG_IMM,
+        REG_MEM,
+        REG_MEMB,
         REG_AX,
         REG_BX,
         REG_CX,
@@ -52,6 +63,9 @@ typedef struct assembly_function_struct {
         REG_SI
     } last_register;
     int used_reg;
+    size_t* dest_locs;
+    size_t* dest_offsets;
+    size_t dest_size;
 } as_function_T;
 typedef struct assembly_data_struct {
     char* name;
