@@ -23,8 +23,12 @@ data_type_T* visitor_visit_int(visitor_T* visitor, scope_T* scope, AST_T* node, 
 data_type_T* visitor_visit_variable_definition(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function);
 data_type_T* visitor_visit_variable_assignment(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function);
 data_type_T* visitor_visit_variable(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function);
-data_type_T* visitor_visit_function_definition(visitor_T* visitor, scope_T* scope, AST_T* node);
+data_type_T* visitor_visit_member(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function);
+fspec_T* visitor_visit_function_definition(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function);
 data_type_T* visitor_visit_compound(visitor_T* visitor, scope_T* scope, AST_T* node, data_type_T* return_type, as_function_T* as_function);
 data_type_T* visitor_visit_function_call(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function);
+void visitor_visit_function_call_args(visitor_T* visitor, scope_T* scope, AST_T* node, fspec_T* fspec, as_function_T* as_function);
 data_type_T* visitor_visit_return(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function, data_type_T* return_type);
+data_type_T* visitor_visit_class_definition(visitor_T* visitor, scope_T* scope, AST_T* node);
+data_type_T* visitor_visit_new(visitor_T* visito, scope_T* scope, AST_T* node, as_function_T* as_function);
 #endif
