@@ -1,6 +1,7 @@
 .data
 _printi_format: .asciz "%d\n"
 _printp_format: .asciz "%p\n"
+_prints_format: .asciz "%s\n"
 .text
 .extern _printf
 .extern _malloc
@@ -22,6 +23,15 @@ _printp:
     movq _printp_format@GOTPCREL(%rip), %rdi
     callq _printf
     xorl %eax, %eax
+    pop %rbp
+    ret
+.globl _prints
+_prints:
+    push %rbp
+    movq %rsp, %rbp
+    movq %rdi, %rsi
+    leaq _prints_format(%rip), %rdi
+    callq _printf
     pop %rbp
     ret
 .globl _C3Int5print
