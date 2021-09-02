@@ -3,6 +3,8 @@
 #include "include/utils.h"
 #include "include/errors.h"
 #include "include/defs.h"
+#define prefix "_Pre"
+#define prefix_len 4
 visitor_T* init_visitor(as_file_T* as_file) {
     visitor_T* visitor = calloc(1, sizeof(struct VISITOR_STRUCT));
     visitor->noop = init_ast(AST_NOOP);
@@ -11,11 +13,14 @@ visitor_T* init_visitor(as_file_T* as_file) {
     visitor->int_type->primitive_size = 4;
     visitor->null_type = init_data_type(TYPE_NULL, "Null");
     visitor->null_type->primitive_size = 0;
+    visitor->string_type = init_data_type(TYPE_STRING, "String");
+    visitor->string_type->primitive_size = 8;
 
     visitor->global_scope = init_scope((void*) 0);
 
     scope_add_variable(visitor->global_scope, "Int", visitor->int_type);
     scope_add_variable(visitor->global_scope, "Null", visitor->null_type);
+    scope_add_variable(visitor->global_scope, "String", visitor->string_type);
     visitor->as_file = as_file;
 
     defs_define_all(visitor->global_scope);
@@ -27,6 +32,8 @@ data_type_T* get_data_type(visitor_T* visitor, scope_T* scope, char* name) {
         return (void*) 0;
     } else if (utils_strcmp(name, "Int")) {
         return visitor->int_type;
+    } else if (utils_strcmp(name, "String")) {
+        return visitor->string_type;
     } else {
         data_type_T* data_type = scope_get_variable(visitor->global_scope, name);
         if (data_type) {
@@ -84,6 +91,7 @@ char* visitor_data_type_to_arg_name(visitor_T* visitor, scope_T* scope, data_typ
 data_type_T* visitor_visit(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
     switch (node->type) {
         case AST_INT: return visitor_visit_int(visitor, scope, node, as_function); break;
+        case AST_STRING: return visitor_visit_string(visitor, scope, node, as_function); break;
         case AST_VARIABLE_DEFINITION: return visitor_visit_variable_definition(visitor, scope, node, as_function); break;
         case AST_VARIABLE: return visitor_visit_variable(visitor, scope, node, as_function); break;
         case AST_FUNCTION_CALL: return visitor_visit_function_call(visitor, scope, node, as_function); break;
@@ -245,6 +253,18 @@ data_type_T* visitor_visit_int(visitor_T* visitor, scope_T* scope, AST_T* node, 
     asop->value.int_value = node->int_value;
     as_add_op_to_function(as_function, asop);
     return visitor->int_type;
+}
+data_type_T* visitor_visit_string(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+    char* name = calloc(1, (4 + 1 + 5 + 3) * sizeof(char));
+    sprintf(name, prefix ".string%lu", visitor->as_file->unnamed_string_count);
+    visitor->as_file->unnamed_string_count++;
+    as_data_T* as_data = init_as_data(name, visitor->string_type);
+    as_data->value.ptr_value = node->string_value;
+    as_add_data(visitor->as_file, as_data);
+    as_op_T* as_op = init_as_op(ASOP_SYMBADDRREF);
+    as_op->name = name;
+    as_add_op_to_function(as_function, as_op);
+    return visitor->string_type;
 }
 data_type_T* visitor_visit_variable_definition(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
     data_type_T* definition_type = get_data_type(visitor, scope, node->variable_definition_type);
