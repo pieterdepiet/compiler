@@ -12,10 +12,15 @@ void defs_define_class_member();
 
 void defs_define_io(scope_T* scope) {
     // Print
-    fspec_T* fspec = init_fspec(scope_get_variable(scope, "Null"));
+    data_type_T* null_type = scope_get_variable(scope, "Null");
+    fspec_T* fspec = init_fspec(null_type);
     fspec_add_unnamed_arg(fspec, scope_get_variable(scope, "Int"));
     fspec->symbol_name = "_printi";
     defs_define(scope, "print", fspec);
+    fspec = init_fspec(null_type);
+    fspec->symbol_name = "_prints";
+    fspec_add_unnamed_arg(fspec, scope_get_variable(scope, "String"));
+    defs_define(scope, "prints", fspec);
 }
 void defs_define_int(scope_T* scope) {
     data_type_T* int_type = scope_get_variable(scope, "Int");
