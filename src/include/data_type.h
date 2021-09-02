@@ -5,6 +5,7 @@ typedef struct DATA_TYPE_STRUCT {
     enum {
         TYPE_NULL,
         TYPE_INT,
+        TYPE_STRING,
         TYPE_CLASS,
         TYPE_STRUCT,
         TYPE_STATICCLASS
