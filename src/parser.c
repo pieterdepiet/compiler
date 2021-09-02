@@ -105,13 +105,7 @@ AST_T* parser_parse_id(parser_T* parser) {
 }
 
 AST_T* parser_parse_expr(parser_T* parser) {
-    AST_T* left_hand;
-    switch (parser->current_token->type) {
-        case TOKEN_ID: left_hand = parser_parse_id(parser); break;
-        case TOKEN_INT: left_hand = parser_parse_int(parser); break;
-        case TOKEN_LPAREN: parser_eat(parser, TOKEN_LPAREN); left_hand = parser_parse_expr(parser); parser_eat(parser, TOKEN_RPAREN); break;
-        default: err_unexpected_token(parser, -1); break;
-    }
+    AST_T* left_hand = parser_parse_single_thing(parser);
     while (parser->current_token->type != TOKEN_RPAREN && parser->current_token->type != TOKEN_SEMI && parser->current_token->type != TOKEN_COMMA && parser->current_token->type != TOKEN_RBRACE && parser->current_token->type != TOKEN_RBRACKET) {
         switch (parser->current_token->type) {
             case TOKEN_PLUS: left_hand = parser_parse_binop(parser, left_hand, BINOP_PLUS); break;
@@ -146,6 +140,17 @@ AST_T* parser_parse_expr(parser_T* parser) {
     }
     left_hand->parenthetical = PARENTHETICAL;
     return left_hand;
+}
+AST_T* parser_parse_single_thing(parser_T* parser) {
+    switch (parser->current_token->type) {
+        case TOKEN_ID: return parser_parse_id(parser); break;
+        case TOKEN_INT: return parser_parse_int(parser); break;
+        case TOKEN_LPAREN: return parser_parse_lparen(parser); break;
+        case TOKEN_STRING: return parser_parse_string(parser); break;
+        case TOKEN_FLOAT: return parser_parse_float(parser); break;
+        case TOKEN_DOUBLE: return parser_parse_double(parser); break;
+        default: err_unexpected_token(parser, -1); return (void*) 0; break;
+    }
 }
 AST_T* parser_parse_lparen(parser_T* parser) {
     parser_eat(parser, TOKEN_LPAREN);
@@ -185,11 +190,11 @@ AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
         default: err_unexpected_token(parser, -1); break;
     }
     if (assignment_type < 0) {
-        ast_variable_assignment->right_hand = parser_parse_expr(parser);
+        ast_variable_assignment->right_hand = parser_parse_single_thing(parser);
     } else {
         ast_variable_assignment->right_hand = init_ast(AST_BINOP);
         ast_variable_assignment->right_hand->binop_type = assignment_type;
-        ast_variable_assignment->right_hand->right_hand = parser_parse_expr(parser);
+        ast_variable_assignment->right_hand->right_hand = parser_parse_single_thing(parser);
     }
     if (ast_expr_level(variable) <= EXPR_MEMBER) {
         ast_variable_assignment->left_hand = variable;
@@ -429,17 +434,9 @@ AST_T* parser_parse_binop(parser_T* parser, AST_T* left_hand, int op_type) {
     AST_T* ast_binop = init_ast(AST_BINOP);
     ast_binop->binop_type = op_type;
     parser_eat(parser, parser->current_token->type); // Just advance
-    switch (parser->current_token->type) {
-        case TOKEN_ID: ast_binop->right_hand = parser_parse_id(parser); break;
-        case TOKEN_STRING: ast_binop->right_hand = parser_parse_string(parser); break;
-        case TOKEN_INT: ast_binop->right_hand = parser_parse_int(parser); break;
-        case TOKEN_FLOAT: ast_binop->right_hand = parser_parse_float(parser); break;
-        case TOKEN_DOUBLE: ast_binop->right_hand = parser_parse_double(parser); break;
-        case TOKEN_LPAREN: ast_binop->right_hand = parser_parse_expr(parser); break;
-        default: err_unexpected_token(parser, -1); break;
-    }
+    ast_binop->right_hand = parser_parse_single_thing(parser);
     int op_lvl = ast_binop_level(op_type);
-    if (ast_expr_level(left_hand) < op_lvl) {
+    if (ast_expr_level(left_hand) <= op_lvl) {
         ast_binop->left_hand = left_hand;
         return ast_binop;
     } else {

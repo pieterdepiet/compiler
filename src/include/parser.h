@@ -23,6 +23,7 @@ AST_T* parser_parse_statement(parser_T* parser);
 AST_T* parser_parse_header(parser_T* parser, int headers_type);
 
 AST_T* parser_parse_id(parser_T* parser);
+AST_T* parser_parse_single_thing(parser_T* parser);
 AST_T* parser_parse_expr(parser_T* parser);
 AST_T* parser_parse_lparen(parser_T* parser);
 
