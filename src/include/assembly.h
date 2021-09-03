@@ -31,7 +31,9 @@ typedef struct ASSEMBLY_OPERATION_STRUCT {
         ASOP_NEW, // 14
         ASOP_MEMBREF, // 15
         ASOP_SETDEST, // 16
-        ASOP_FREEDEST // 17
+        ASOP_FREEDEST, // 17
+        ASOP_SYMBOLREF,
+        ASOP_SYMBADDRREF
     } type;
     char* name;
     size_t var_location;
@@ -55,6 +57,8 @@ typedef struct assembly_function_struct {
         REG_IMM,
         REG_MEM,
         REG_MEMB,
+        REG_SYMB,
+        REG_SYMBADDR,
         REG_AX,
         REG_BX,
         REG_CX,
@@ -77,6 +81,7 @@ typedef struct assembly_data_struct {
 typedef struct assembly_file_struct {
     list_T* functions;
     list_T* data;
+    size_t unnamed_string_count;
 } as_file_T;
 
 
