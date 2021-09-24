@@ -58,29 +58,13 @@ int node_to_data_type(visitor_T* visitor, data_type_T* data_type, AST_T* node) {
     return -1;
 }
 
-int node_equals_data_type(data_type_T* type1, data_type_T* type2) {
-    if (type1 == type2) {
-        return 1;
-    } else {
-        return 0;
-    }
-}
-data_type_T* get_variable(scope_T* scope, char* name) {
-    scope_T* last_scope = scope;
-    while (last_scope->parent) {
-        for (size_t i = 0; i < last_scope->variables_size; i++) {
-            if (utils_strcmp(last_scope->variable_names[i], name)) {
-                return last_scope->variable_types[i];
-            }
-        }
-        last_scope = scope->parent;
-    }
-    return (void*) 0;
-}
-
 char* visitor_data_type_to_arg_name(visitor_T* visitor, scope_T* scope, data_type_T* data_type) {
     if (data_type->primitive_type == TYPE_INT) {
         return "i";
+    } else if (data_type->primitive_type == TYPE_STRING) {
+        return "s";
+    } else if (data_type->primitive_type == TYPE_NULL) {
+        return "v";
     } else {
         char* arg_name = calloc(1, (3 + strlen(data_type->type_name) + 1) * sizeof(char));
         sprintf(arg_name, "%lu%s", strlen(data_type->type_name), data_type->type_name);
@@ -136,9 +120,25 @@ data_type_T* visitor_visit_global(visitor_T* visitor, AST_T* root) {
             as_function_T* as_function = init_as_function(root->compound_value[i]->function_definition_name);
             scope_T* function_scope = init_scope(visitor->global_scope);
             fspec_T* function_definition = visitor_visit_function_definition(visitor, function_scope, root->compound_value[i], as_function);
-            function_definition->symbol_name = root->compound_value[i]->function_definition_name;
             if (utils_strcmp(as_function->name, "start")) {
                 as_function->name = "_start";
+            } else {
+                function_definition->symbol_name = calloc(1, (prefix_len + 4 + strlen(root->compound_value[i]->function_definition_name) + 1));
+                sprintf(function_definition->symbol_name, prefix "%lu%s", strlen(root->compound_value[i]->function_definition_name), root->compound_value[i]->function_definition_name);
+                for (size_t j = 0; j < function_definition->unnamed_length; j++) {
+                    char* type_name = visitor_data_type_to_arg_name(visitor, function_scope, function_definition->unnamed_types[j]);
+                    function_definition->symbol_name = realloc(function_definition->symbol_name, (strlen(function_definition->symbol_name) + strlen(type_name) + 2) * sizeof(char));
+                    sprintf(function_definition->symbol_name, "%s_%s", function_definition->symbol_name, type_name);
+                }
+                for (size_t j = 0; j < function_definition->named_length; j++) {
+                    char* type_name = visitor_data_type_to_arg_name(visitor, function_scope, function_definition->named_types[j]);
+                    function_definition->symbol_name = realloc(function_definition->symbol_name, (strlen(function_definition->symbol_name) + 4 + strlen(function_definition->named_names[j]) + strlen(type_name)) * sizeof(char));
+                    sprintf(function_definition->symbol_name, "%s%lu%s%s", function_definition->symbol_name, strlen(function_definition->named_names[j]), function_definition->named_names[j], type_name);
+                    printf("Symbol name %s\n", function_definition->symbol_name);
+                }
+                char* return_type_name = visitor_data_type_to_arg_name(visitor, function_scope, function_definition->return_type);
+                function_definition->symbol_name = realloc(function_definition->symbol_name, (strlen(function_definition->symbol_name) + strlen(return_type_name) + 1) * sizeof(char));
+                sprintf(function_definition->symbol_name, "%s%s", function_definition->symbol_name, return_type_name);
             }
             scope_add_function(visitor->global_scope, root->compound_value[i]->function_definition_name, function_definition);
         } else if (root->compound_value[i]->type == AST_CLASS_DEFINITION) {
@@ -399,7 +399,6 @@ data_type_T* visitor_visit_function_call(visitor_T* visitor, scope_T* scope, AST
             err_undefined_function(node->function_call_function->variable_name);
         }
     } else if (node->function_call_function->type == AST_MEMBER) {
-        // err_not_implemented("Class function calls\n");
         data_type_T* parent_type = visitor_visit(visitor, scope, node->function_call_function->member_parent, as_function);
         for (size_t i = 0; i < parent_type->class_functions_size; i++) {
             if (utils_strcmp(node->function_call_function->member_name, parent_type->class_function_names[i])) {
@@ -473,9 +472,23 @@ data_type_T* visitor_visit_class_definition(visitor_T* visitor, scope_T* scope, 
             fspec_T* fspec = visitor_visit_function_definition(visitor, function_scope, node->class_members[i], as_function);
             fspec->is_class_function = !node->class_members[i]->function_definition_is_static;
             function_scope->has_this = !node->class_members[i]->function_definition_is_static;
-            fspec->symbol_name = realloc(fspec->symbol_name, (30) * sizeof(char));
+            fspec->symbol_name = realloc(fspec->symbol_name, (prefix_len + 3 + strlen(data_type->type_name) + 3 + strlen(node->class_members[i]->function_definition_name)) * sizeof(char));
             as_function->name = fspec->symbol_name;
-            sprintf(fspec->symbol_name, "__classfunction%zu", i);
+            sprintf(fspec->symbol_name, prefix "%lu%s%lu%s", strlen(data_type->type_name), data_type->type_name, strlen(node->class_members[i]->function_definition_name), node->class_members[i]->function_definition_name);
+            for (size_t j = 0; j < fspec->unnamed_length; j++) {
+                char* type_name = visitor_data_type_to_arg_name(visitor, scope, fspec->unnamed_types[j]);
+                fspec->symbol_name = realloc(fspec->symbol_name, (strlen(fspec->symbol_name) + strlen(type_name) + 2) * sizeof(char));
+                sprintf(fspec->symbol_name, "%s_%s", fspec->symbol_name, type_name);
+            }
+            for (size_t j = 0; j < fspec->named_length; j++) {
+                char* type_name = visitor_data_type_to_arg_name(visitor, scope, fspec->named_types[j]);
+                fspec->symbol_name = realloc(fspec->symbol_name, (strlen(fspec->symbol_name) + 4 + strlen(fspec->named_names[j]) + strlen(type_name)) * sizeof(char));
+                sprintf(fspec->symbol_name, "%s%lu%s%s", fspec->symbol_name, strlen(fspec->named_names[j]), fspec->named_names[j], type_name);
+                printf("Symbol name %s\n", fspec->symbol_name);
+            }
+            char* return_type_name = visitor_data_type_to_arg_name(visitor, scope, fspec->return_type);
+            fspec->symbol_name = realloc(fspec->symbol_name, (strlen(fspec->symbol_name) + strlen(return_type_name) + 1) * sizeof(char));
+            sprintf(fspec->symbol_name, "%s%s", fspec->symbol_name, return_type_name);
             
             list_add(&type_to_add->class_functions, &type_to_add->class_functions_size, fspec);
             type_to_add->class_functions_size--;
