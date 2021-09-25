@@ -9,4 +9,5 @@ void defs_define(scope_T* scope, char* name, fspec_T* fspec);
 void defs_define_io(scope_T* scope);
 
 void defs_define_int(scope_T* scope);
+void defs_define_string(scope_T* scope);
 #endif
