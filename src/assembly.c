@@ -227,7 +227,7 @@ char* as_ensure_no_mem(as_function_T* as, char** as_text, as_op_T* op) {
     }
 }
 void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
-    printf("Asop %s\n", as_op_type_string(op->type));
+    // printf("Asop %s op size %d\n", as_op_type_string(op->type), op->op_size);
     if (op->type == ASOP_SETLASTIMM) {
         as->last_imm_str = as_compile_to_imm(op->data_type, op->value);
         as->last_register = REG_IMM;
@@ -257,7 +257,11 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         utils_strcat(as_text, temp);
     } else if (op->type == ASOP_NEW) {
         char* temp = calloc(1, (new_format_length) * sizeof(char));
-        sprintf(temp, new_format, op->data_type->primitive_size);
+        size_t class_size = 0;
+        for (size_t i = 0; i < op->data_type->class_members_size; i++) {
+            class_size += op->data_type->class_member_types[i]->primitive_size;
+        }
+        sprintf(temp, new_format, class_size);
         utils_strcat(as_text, temp);
         as->last_register = REG_AX;
     } else if (op->type == ASOP_SETDEST) {
