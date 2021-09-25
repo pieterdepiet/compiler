@@ -1,10 +1,12 @@
 class Greeter {
+    var greetCount : Int;
     var greetstring : String;
     fun setGreet(to str : String) {
         this.greetstring = str;
     }
     fun greet() {
         prints(this.greetstring);
+        this.greetCount += 1;
     }
 }
 fun start() {
