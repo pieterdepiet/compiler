@@ -9,21 +9,13 @@ visitor_T* init_visitor(as_file_T* as_file) {
     visitor_T* visitor = calloc(1, sizeof(struct VISITOR_STRUCT));
     visitor->noop = init_ast(AST_NOOP);
 
-    visitor->int_type = init_data_type(TYPE_INT, "Int");
-    visitor->int_type->primitive_size = 4;
-    visitor->null_type = init_data_type(TYPE_NULL, "Null");
-    visitor->null_type->primitive_size = 0;
-    visitor->string_type = init_data_type(TYPE_STRING, "String");
-    visitor->string_type->primitive_size = 8;
-
     visitor->global_scope = init_scope((void*) 0);
-
-    scope_add_variable(visitor->global_scope, "Int", visitor->int_type);
-    scope_add_variable(visitor->global_scope, "Null", visitor->null_type);
-    scope_add_variable(visitor->global_scope, "String", visitor->string_type);
-    visitor->as_file = as_file;
-
     defs_define_all(visitor->global_scope);
+
+    visitor->int_type = scope_get_variable(visitor->global_scope, "Int");
+    visitor->null_type = scope_get_variable(visitor->global_scope, "Null");
+    visitor->string_type = scope_get_variable(visitor->global_scope, "String");
+    visitor->as_file = as_file;
     
     return visitor;
 }
@@ -31,9 +23,9 @@ data_type_T* get_data_type(visitor_T* visitor, scope_T* scope, char* name) {
     if (name == (void*) 0) {
         return (void*) 0;
     } else if (utils_strcmp(name, "Int")) {
-        return visitor->int_type;
+        return visitor->int_type->class_type;
     } else if (utils_strcmp(name, "String")) {
-        return visitor->string_type;
+        return visitor->string_type->class_type;
     } else {
         data_type_T* data_type = scope_get_variable(visitor->global_scope, name);
         if (data_type) {
@@ -73,6 +65,7 @@ char* visitor_data_type_to_arg_name(visitor_T* visitor, scope_T* scope, data_typ
 }
 
 data_type_T* visitor_visit(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+    // printf("Visit node type %s\n", ast_node_type_string(node));
     switch (node->type) {
         case AST_INT: return visitor_visit_int(visitor, scope, node, as_function); break;
         case AST_STRING: return visitor_visit_string(visitor, scope, node, as_function); break;
@@ -101,6 +94,7 @@ as_value_U visitor_visit_data(visitor_T* visitor, data_type_T* data_type, AST_T*
 }
 data_type_T* visitor_visit_global(visitor_T* visitor, AST_T* root) {
     for (size_t i = 0; i < root->compound_size; i++) {
+        // printf("Visit global node %s\n", ast_node_type_string(root->compound_value[i]));
         if (root->compound_value[i]->type == AST_VARIABLE_DEFINITION) {
             data_type_T* data_type = get_data_type(visitor, visitor->global_scope, root->compound_value[i]->variable_definition_type);
             if (!data_type) {
@@ -134,7 +128,6 @@ data_type_T* visitor_visit_global(visitor_T* visitor, AST_T* root) {
                     char* type_name = visitor_data_type_to_arg_name(visitor, function_scope, function_definition->named_types[j]);
                     function_definition->symbol_name = realloc(function_definition->symbol_name, (strlen(function_definition->symbol_name) + 4 + strlen(function_definition->named_names[j]) + strlen(type_name)) * sizeof(char));
                     sprintf(function_definition->symbol_name, "%s%lu%s%s", function_definition->symbol_name, strlen(function_definition->named_names[j]), function_definition->named_names[j], type_name);
-                    printf("Symbol name %s\n", function_definition->symbol_name);
                 }
                 char* return_type_name = visitor_data_type_to_arg_name(visitor, function_scope, function_definition->return_type);
                 function_definition->symbol_name = realloc(function_definition->symbol_name, (strlen(function_definition->symbol_name) + strlen(return_type_name) + 1) * sizeof(char));
@@ -171,9 +164,6 @@ fspec_T* visitor_visit_function_definition(visitor_T* visitor, scope_T* scope, A
             err_undefined_variable(node->function_definition_args->unnamed_types[i]);
         }
         as_add_op_to_function(as_function, as_op);
-        // char* arg_name = visitor_data_type_to_arg_name(visitor, scope, arg_type);
-        // fspec->symbol_name = realloc(fspec->symbol_name, strlen(fspec->symbol_name) + strlen(arg_name) + 1);
-        // strcat(fspec->symbol_name, arg_name);
     }
     for (size_t i = 0; i < node->function_definition_args->named_size; i++) {
         data_type_T* arg_type = get_data_type(visitor, scope, node->function_definition_args->named_types[i]);
@@ -187,9 +177,6 @@ fspec_T* visitor_visit_function_definition(visitor_T* visitor, scope_T* scope, A
         as_op->op_size = arg_type->primitive_size;
         as_op->var_location = scope_get_variable_relative_location(scope, node->function_definition_args->named_inside_names[i]);
         as_add_op_to_function(as_function, as_op);
-        // char* arg_name = visitor_data_type_to_arg_name(visitor, scope, arg_type);
-        // fspec->symbol_name = realloc(fspec->symbol_name, strlen(fspec->symbol_name) + strlen(arg_name) + 1);
-        // strcat(fspec->symbol_name, arg_name);
     }
     data_type_T* compound_type = visitor_visit_compound(visitor, scope, node->function_definition_body, return_type, as_function);
     if (compound_type == visitor->null_type) {
@@ -248,11 +235,11 @@ data_type_T* visitor_visit_binop(visitor_T* visitor, scope_T* scope, AST_T* node
 }
 data_type_T* visitor_visit_int(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
     as_op_T* asop = init_as_op(ASOP_SETLASTIMM);
-    asop->op_size = visitor->int_type->primitive_size;
-    asop->data_type = visitor->int_type;
+    asop->op_size = visitor->int_type->class_type->primitive_size;
+    asop->data_type = visitor->int_type->class_type;
     asop->value.int_value = node->int_value;
     as_add_op_to_function(as_function, asop);
-    return visitor->int_type;
+    return visitor->int_type->class_type;
 }
 data_type_T* visitor_visit_string(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
     char* name = calloc(1, (4 + 1 + 5 + 3) * sizeof(char));
@@ -260,11 +247,12 @@ data_type_T* visitor_visit_string(visitor_T* visitor, scope_T* scope, AST_T* nod
     visitor->as_file->unnamed_string_count++;
     as_data_T* as_data = init_as_data(name, visitor->string_type);
     as_data->value.ptr_value = node->string_value;
+    as_data->value_type = visitor->string_type->class_type;
     as_add_data(visitor->as_file, as_data);
     as_op_T* as_op = init_as_op(ASOP_SYMBADDRREF);
     as_op->name = name;
     as_add_op_to_function(as_function, as_op);
-    return visitor->string_type;
+    return visitor->string_type->class_type;
 }
 data_type_T* visitor_visit_variable_definition(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
     data_type_T* definition_type = get_data_type(visitor, scope, node->variable_definition_type);
@@ -431,7 +419,10 @@ data_type_T* visitor_visit_function_call(visitor_T* visitor, scope_T* scope, AST
 }
 data_type_T* visitor_visit_class_definition(visitor_T* visitor, scope_T* scope, AST_T* node) {
     data_type_T* data_type = init_data_type(TYPE_STATICCLASS, node->class_name);
+    data_type->primitive_size = 0;
     data_type->class_type = init_data_type(TYPE_CLASS, node->class_name);
+    data_type->class_type->primitive_size = 8;
+    data_type->class_type->class_type = data_type;
     scope_add_variable(scope, node->class_name, data_type);
     for (size_t i = 0; i < node->class_prototype_names_size; i++) {
         data_type_T* prototype_type = get_data_type(visitor, scope, node->class_prototype_names[i]);
@@ -452,7 +443,6 @@ data_type_T* visitor_visit_class_definition(visitor_T* visitor, scope_T* scope, 
             list_add(&type_to_add->class_member_types, &type_to_add->class_members_size, member_type);
             type_to_add->class_members_size--;
             list_add(&type_to_add->class_member_names, &type_to_add->class_members_size, node->class_members[i]->variable_definition_name);
-            type_to_add->primitive_size += member_type->primitive_size;
         } else if (node->class_members[i]->type == AST_FUNCTION_DEFINITION) {
             scope_T* function_scope = init_scope(scope);
             as_function_T* as_function = init_as_function((void*) 0);
@@ -484,7 +474,6 @@ data_type_T* visitor_visit_class_definition(visitor_T* visitor, scope_T* scope, 
                 char* type_name = visitor_data_type_to_arg_name(visitor, scope, fspec->named_types[j]);
                 fspec->symbol_name = realloc(fspec->symbol_name, (strlen(fspec->symbol_name) + 4 + strlen(fspec->named_names[j]) + strlen(type_name)) * sizeof(char));
                 sprintf(fspec->symbol_name, "%s%lu%s%s", fspec->symbol_name, strlen(fspec->named_names[j]), fspec->named_names[j], type_name);
-                printf("Symbol name %s\n", fspec->symbol_name);
             }
             char* return_type_name = visitor_data_type_to_arg_name(visitor, scope, fspec->return_type);
             fspec->symbol_name = realloc(fspec->symbol_name, (strlen(fspec->symbol_name) + strlen(return_type_name) + 1) * sizeof(char));
@@ -511,13 +500,14 @@ data_type_T* visitor_visit_new(visitor_T* visitor, scope_T* scope, AST_T* node, 
     as_op_T* as_op = init_as_op(ASOP_NEW);
     as_op->op_size = 8;
     as_add_op_to_function(as_function, as_op);
+    data_type_T* new_type;
     if (node->new_function_call->function_call_function->type == AST_VARIABLE) {
-        data_type_T* new_type = scope_get_variable(scope, node->new_function_call->function_call_function->variable_name);
+        new_type = scope_get_variable(scope, node->new_function_call->function_call_function->variable_name)->class_type;
         as_op->data_type = new_type;
     } else if (node->new_function_call->function_call_function->type == AST_MEMBER) {
         err_not_implemented("member classes");
-        data_type_T* new_type = visitor_visit_member(visitor, scope, node->new_function_call->function_call_function, as_function);
-        as_op->data_type = new_type->class_type;
+        new_type = visitor_visit_member(visitor, scope, node->new_function_call->function_call_function, as_function)->class_type;
+        as_op->data_type = new_type;
     }
-    return as_op->data_type->class_type;
+    return new_type;
 }
