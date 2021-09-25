@@ -3,17 +3,19 @@ Experimental project to learn assembly and other low-level stuff.
 
 ## Features:
 - Integers
-- Type safety (Currently there's only one type, that's ints but typesafety is already kind of there)
+- Strings (very limited)
+- Type safety
 - Function definitions with return values and named arguments
 - Function calls
-- Integer addition
+- Integer addition/substraction
 ## In progress
 - Add import
 ## TODO:
 - [ ] Add import
 - [ ] Implement classes
-- [ ] Add strings
+- [x] Add strings
+- [ ] Finish strings
 - [ ] Add arrays
 - [ ] More math
 - [ ] More number types
-- [ ] Think of a name for the language and an extension name
+- [ ] Think of a name for the language and an file extension
