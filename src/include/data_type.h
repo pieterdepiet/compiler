@@ -7,7 +7,6 @@ typedef struct DATA_TYPE_STRUCT {
         TYPE_INT,
         TYPE_STRING,
         TYPE_CLASS,
-        TYPE_STRUCT,
         TYPE_STATICCLASS
     } primitive_type;
     char** class_member_names;
