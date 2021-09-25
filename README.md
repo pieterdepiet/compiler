@@ -12,9 +12,12 @@ Experimental project to learn assembly and other low-level stuff.
 - Add import
 ## TODO:
 - [ ] Add import
-- [ ] Implement classes
+- [x] Implement classes
+    - [ ] Implement public/private
+    - [ ] Implement static class members
+    - [ ] Implement local structures
 - [x] Add strings
-- [ ] Finish strings
+    - [ ] Finish strings
 - [ ] Add arrays
 - [ ] More math
 - [ ] More number types
