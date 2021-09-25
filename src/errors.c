@@ -23,8 +23,17 @@ void err_undefined_function(char* function_name) {
     printf(ErrorStart "function %s is not defined\n", function_name);
     exit(1);
 }
+char* get_type_info(data_type_T* type) {
+    if (type->primitive_type == TYPE_STATICCLASS) {
+        return "static type";
+    } else if (type->primitive_type == TYPE_CLASS) {
+        return "instance of ";
+    } else {
+        return "";
+    }
+}
 void err_conflicting_types(data_type_T* type1, data_type_T* type2) {
-    printf(ErrorStart "conflicting types %s and %s\n", type1->type_name, type2->type_name);
+    printf(ErrorStart "conflicting types %s%s and %s%s\n", get_type_info(type1), type1->type_name, get_type_info(type2), type2->type_name);
     exit(1);
 }
 void err_undefined_member(char* parent_name, char* member_name) {
