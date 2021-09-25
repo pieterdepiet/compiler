@@ -9,7 +9,7 @@ $(exec): $(objects) $(lib)
 	gcc $(objects) $(flags) -o $(exec)
 
 %.o: %.c include/%.h
-	gcc -c  $(flags) $< -o $@
+	gcc -c $(flags) $< -o $@
 
 lib: $(lib)
 	gcc -c stdlib/lib.s -o stdlib/lib.o
