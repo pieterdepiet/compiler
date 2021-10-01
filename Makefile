@@ -1,15 +1,24 @@
 exec = compiler.out
 sources = $(wildcard src/*.c)
 objects = $(sources:.c=.o)
-flags = -g
+flags = -Wall -g
 lib = stdlib/lib.s
+makefile = Makefile
 
-$(exec): $(objects) $(lib)
+$(exec): $(objects) $(lib) $(makefile)
 	make lib
 	gcc $(objects) $(flags) -o $(exec)
 
-%.o: %.c include/%.h
+%.o: %.c include/%.h $(makefile)
 	gcc -c $(flags) $< -o $@
+
+as: $(sources:.c=.s) $(makefile)
+
+%.s: %.c include/%.h $(makefile)
+	gcc -S -g $(flags) $< -o $@
+
+aslink:
+	gcc src/*.s $(flags) -o $(exec)
 
 lib: $(lib)
 	gcc -c stdlib/lib.s -o stdlib/lib.o
@@ -20,5 +29,5 @@ run:
 
 clean:
 	-rm *.out
-	-rm *.o
+	-rm stdlib/*.o
 	-rm src/*.o
