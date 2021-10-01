@@ -84,6 +84,8 @@ AST_T* parser_parse_id(parser_T* parser) {
         return parser_parse_class_definition(parser);
     } else if (utils_strcmp(parser->current_token->value, "new")) {
         return parser_parse_new(parser);
+    } else if (utils_strcmp(parser->current_token->value, "if")) {
+        return parser_parse_if(parser);
     } else {
         return parser_parse_variable(parser);
     }
@@ -180,7 +182,7 @@ AST_T* parser_parse_variable_definition(parser_T* parser) {
 AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
     AST_T* ast_variable_assignment = init_ast(AST_BINOP);
     ast_variable_assignment->binop_type = BINOP_ASSIGN;
-    int assignment_type;
+    int assignment_type = 0;
     switch (parser->current_token->type) {
         case TOKEN_EQUALS: parser_eat(parser, TOKEN_EQUALS); assignment_type = -1; break;
         case TOKEN_PLUS_EQUALS: parser_eat(parser, TOKEN_PLUS_EQUALS); assignment_type = BINOP_PLUS; break;
@@ -501,6 +503,7 @@ AST_T* parser_parse_if(parser_T* parser) {
             ast_else->else_body = parser_parse_statements(parser);
             parser_eat(parser, TOKEN_RBRACE);
             last_statement->next_statement = ast_else;
+            break;
         } else if (parser->current_token->type == TOKEN_ID && utils_strcmp(parser->current_token->value, "if")) {
             AST_T* ast_elif = init_ast(AST_ELIF);
             parser_eat(parser, TOKEN_ID);
