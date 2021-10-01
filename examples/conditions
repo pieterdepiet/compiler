@@ -1,0 +1,9 @@
+fun start(_ argc : Int) {
+    if (argc < 2) {
+        prints("No args");
+    } else if (argc < 3) {
+        prints("One arg");
+    } else {
+        prints("Args");
+    }
+}
