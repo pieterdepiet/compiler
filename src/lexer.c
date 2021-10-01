@@ -41,7 +41,7 @@ void lexer_go_back(lexer_T* lexer) {
         lexer->c = lexer->contents[lexer->i]; 
         if (lexer->c == '\n') {
             lexer->lineno--;
-            size_t i;
+            size_t i = 0;
             if (lexer->i > 0) {
                 for (i = lexer->i - 1; i > 0 && lexer->contents[i] != '\n'; i--);
             }
