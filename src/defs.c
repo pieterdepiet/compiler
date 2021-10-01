@@ -6,6 +6,11 @@ void defs_define_all(scope_T* global_scope) {
     null_type->class_type->class_type = null_type;
     null_type->primitive_size = 0;
     scope_add_variable(global_scope, "Null", null_type);
+    data_type_T* bool_type = init_data_type(TYPE_STATICCLASS, "Bool");
+    bool_type->class_type = init_data_type(TYPE_BOOL, "Bool");
+    bool_type->class_type->class_type = bool_type;
+    bool_type->primitive_size = 4;
+    scope_add_variable(global_scope, "Bool", bool_type);
     defs_define_int(global_scope);
     defs_define_string(global_scope);
     defs_define_io(global_scope);
