@@ -3,7 +3,13 @@ fun start(_ argc : Int) {
         prints("No args");
     } else if (argc < 3) {
         prints("One arg");
+    } else if (argc < 4) {
+        prints("Two args");
     } else {
-        prints("Args");
+        if (argc < 5) {
+            prints("Three args");
+        } else {
+            prints("More than three args");
+        }
     }
 }
