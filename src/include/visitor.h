@@ -6,8 +6,9 @@
 
 typedef struct VISITOR_STRUCT {
     AST_T* noop;
-    data_type_T* int_type;
     data_type_T* null_type;
+    data_type_T* int_type;
+    data_type_T* bool_type;
     data_type_T* string_type;
     scope_T* global_scope;
     as_file_T* as_file;
@@ -32,5 +33,6 @@ data_type_T* visitor_visit_function_call(visitor_T* visitor, scope_T* scope, AST
 void visitor_visit_function_call_args(visitor_T* visitor, scope_T* scope, AST_T* node, fspec_T* fspec, as_function_T* as_function);
 data_type_T* visitor_visit_return(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function, data_type_T* return_type);
 data_type_T* visitor_visit_class_definition(visitor_T* visitor, scope_T* scope, AST_T* node);
-data_type_T* visitor_visit_new(visitor_T* visito, scope_T* scope, AST_T* node, as_function_T* as_function);
+data_type_T* visitor_visit_new(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function);
+data_type_T* visitor_visit_if(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function);
 #endif
