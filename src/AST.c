@@ -124,6 +124,28 @@ int ast_is_primitive(AST_T* node) {
         default: return 0; break;
     }
 }
+int ast_binop_is_bool(int binop_type) {
+    switch (binop_type) {
+        case BINOP_MEMBER:
+        case BINOP_TIMES:
+        case BINOP_DIV:
+        case BINOP_PLUS:
+        case BINOP_MINUS:
+        case BINOP_ASSIGN:
+        return 0;
+        case BINOP_EQEQ:
+        case BINOP_NEQ:
+        case BINOP_GRT:
+        case BINOP_LET:
+        case BINOP_GREQ:
+        case BINOP_LEEQ:
+        case BINOP_AND:
+        case BINOP_OR:
+        return 1;
+        default:
+        return 0;
+    }
+}
 char* ast_node_type_string(AST_T* node) {
     switch (node->type) {
         case AST_VARIABLE_DEFINITION: return "variable definition"; break;

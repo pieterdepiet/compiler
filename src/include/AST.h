@@ -187,4 +187,5 @@ enum expr_level ast_binop_level(int binop_type);
 enum expr_level ast_expr_level(AST_T* node);
 int ast_is_primitive(AST_T* node);
 char* ast_node_type_string(AST_T* node);
+int ast_binop_is_bool(int binop_type);
 #endif
