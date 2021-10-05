@@ -33,7 +33,10 @@ typedef struct ASSEMBLY_OPERATION_STRUCT {
         ASOP_SETDEST, // 16
         ASOP_FREEDEST, // 17
         ASOP_SYMBOLREF,
-        ASOP_SYMBADDRREF
+        ASOP_SYMBADDRREF,
+        ASOP_OPENIF,
+        ASOP_ELSE,
+        ASOP_CLOSEIF
     } type;
     char* name;
     size_t var_location;
@@ -43,6 +46,8 @@ typedef struct ASSEMBLY_OPERATION_STRUCT {
     as_value_U value;
     data_type_T* data_type;
     int binop_type;
+    size_t bb_no;
+    struct ASSEMBLY_OPERATION_STRUCT* bb_ptr;
 } as_op_T;
 typedef struct assembly_function_struct {
     char* name;
@@ -70,6 +75,32 @@ typedef struct assembly_function_struct {
     size_t* dest_locs;
     size_t* dest_offsets;
     size_t dest_size;
+    size_t function_no;
+    size_t last_bb;
+    enum comparison {
+        COMP_A,
+        COMP_AE,
+        COMP_B,
+        COMP_BE,
+        COMP_CXZ,
+        COMP_ECXZ,
+        COMP_E,
+        COMP_Z,
+        COMP_G,
+        COMP_GE,
+        COMP_L,
+        COMP_LE,
+        COMP_NA,
+        COMP_NAE,
+        COMP_NB,
+        COMP_NBE,
+        COMP_NE,
+        COMP_NG,
+        COMP_NGE,
+        COMP_NL,
+        COMP_NLE,
+        COMP_NZ
+    } last_comparison;
 } as_function_T;
 typedef struct assembly_data_struct {
     char* name;
@@ -102,5 +133,7 @@ void as_compile_binop(as_function_T* as, char** as_text, as_op_T* op, char* src)
 void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op);
 as_text_T* as_compile_file(as_file_T* as);
 char* as_op_type_string(enum op_type type);
+char* as_comp_str(enum comparison comp_type);
+char* as_comp_inv_str(int comp_type);
 
 #endif

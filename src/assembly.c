@@ -8,10 +8,8 @@
 #define size_str_max_length 20
 #define reg_length 4
 
-static char* assembly_types[] = {"quad" /*null ptr*/, "long", "asciz"};
-static size_t assembly_types_lengths[] = {4, 4, 5};
-static char* assembly_type_formats[] = {"", "%d"};
-static size_t assembly_type_formats_lengths[] = {0, 11};
+char* assembly_types[] = {"quad" /*null ptr*/, "long", "long", "asciz"};
+size_t assembly_types_lengths[] = {4, 4, 5};
 int math_registers[] = {REG_IMM, REG_CX, REG_DX, REG_SI, REG_DI};
 
 char* as_data_section_start = ".data\n";
@@ -54,14 +52,68 @@ char* symbref_format =  "%s(%%rip)";
 size_t symbref_format_min_length = 6 + 1;
 char* lea_format =  "  lea%c %s(%%rip), %s\n";
 size_t lea_format_min_length = 7 + 9 + 1;
+char* openif_format =   "  j%s LBB%lu_%lu\n";
+size_t openif_format_min_length = 9 + 2 * size_str_max_length + 1;
+char* else_format = "  jmp LBB%lu_%lu\n"
+                    "LBB%lu_%lu:\n";
+size_t else_format_min_length = 11 + 2 * size_str_max_length + 6 + 2 * size_str_max_length + 1;
+char* closeif_format =  "LBB%lu_%lu:\n";
+size_t closeif_format_length = 6 + 2 * size_str_max_length + 1;
 
 int arg_registers[] = {REG_DI, REG_SI, REG_DX, REG_CX};
 
-static int is_primitive(AST_T* node) {
-    switch (node->type) {
-        case AST_INT: return 1; break;
-        default: return 0;
+
+char* as_comp_str(enum comparison comp_type) {
+    switch (comp_type) {
+        case COMP_A: return "a";
+        case COMP_AE: return "ae";
+        case COMP_B: return "b";
+        case COMP_BE: return "be";
+        case COMP_CXZ: return "cxz";
+        case COMP_ECXZ: return "ecxz";
+        case COMP_E: return "e";
+        case COMP_Z: return "z";
+        case COMP_G: return "g";
+        case COMP_GE: return "ge";
+        case COMP_L: return "l";
+        case COMP_LE: return "le";
+        case COMP_NA: return "na";
+        case COMP_NAE: return "nae";
+        case COMP_NB: return "nb";
+        case COMP_NBE: return "nbe";
+        case COMP_NE: return "ne";
+        case COMP_NG: return "ng";
+        case COMP_NGE: return "nge";
+        case COMP_NL: return "nl";
+        case COMP_NLE: return "nle";
+        case COMP_NZ: return "nz";
     }
+}
+int inv_dict[] = {
+    COMP_NA,
+    COMP_NAE,
+    COMP_NB,
+    COMP_NBE,
+    COMP_NE,
+    COMP_NG,
+    COMP_NGE,
+    COMP_NL,
+    COMP_NLE,
+    COMP_NZ,
+    COMP_AE,
+    COMP_B,
+    COMP_BE,
+    COMP_CXZ,
+    COMP_ECXZ,
+    COMP_E,
+    COMP_Z,
+    COMP_G,
+    COMP_GE,
+    COMP_L,
+    COMP_LE,
+};
+char* as_comp_inv_str(int comp_type) {
+    return as_comp_str(inv_dict[comp_type]);
 }
 char data_type_size_op_char(char size) {
     switch (size) {
@@ -140,6 +192,7 @@ void as_add_data(as_file_T* as, as_data_T* data) {
     list_add_list(as->data, data);
 }
 void as_add_function(as_file_T* as, as_function_T* function) {
+    function->function_no = as->functions->size;
     list_add_list(as->functions, function);
 }
 void as_add_op_to_function(as_function_T* function, as_op_T* op) {
@@ -280,11 +333,39 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
     } else if (op->type == ASOP_SYMBADDRREF) {
         as->last_register = REG_SYMBADDR;
         as->last_imm_str = op->name;
+    } else if (op->type == ASOP_OPENIF) {
+        if (op->bb_ptr->bb_no == -1) {
+            op->bb_ptr->bb_no = as->last_bb;
+            as->last_bb++;
+        }
+        op->bb_no = op->bb_ptr->bb_no;
+        char* condition = as_comp_inv_str(as->last_comparison);
+        char* temp = calloc(1, (openif_format_min_length + strlen(condition)) * sizeof(char));
+        sprintf(temp, openif_format, condition, as->function_no, op->bb_no);
+        utils_strcat(as_text, temp);
+    } else if (op->type == ASOP_CLOSEIF) {
+        char* temp = calloc(1, (closeif_format_length) * sizeof(char));
+        sprintf(temp, closeif_format, as->function_no, op->bb_no);
+        utils_strcat(as_text, temp);
+    } else if (op->type == ASOP_ELSE) {
+        if (op->bb_ptr) {
+            if (op->bb_ptr->bb_no == -1) {
+                op->bb_ptr->bb_no = as->last_bb;
+                as->last_bb++;
+            }
+            char* temp = calloc(1, (else_format_min_length) * sizeof(char));
+            sprintf(temp, else_format, as->function_no, op->bb_ptr->bb_no, as->function_no, op->bb_no);
+            utils_strcat(as_text, temp);
+        } else {
+            printf("Error: No bb opener in else\n");
+            exit(1);
+        }
     } else {
         char* src;
         if (as->last_register == REG_SYMBADDR && op->type == ASOP_ARGTOREG) {
-            char* temp = calloc(1, (lea_format_min_length + strlen(as->last_imm_str)) * sizeof(char));
-            sprintf(temp, lea_format, data_type_size_op_char(op->op_size), as->last_imm_str, data_type_size_register(arg_registers[op->argno], op->op_size));
+            char* reg = data_type_size_register(arg_registers[op->argno], op->op_size);
+            char* temp = calloc(1, (lea_format_min_length + strlen(as->last_imm_str) + strlen(reg)) * sizeof(char));
+            sprintf(temp, lea_format, data_type_size_op_char(op->op_size), as->last_imm_str, reg);
             utils_strcat(as_text, temp);
         } else if (as->last_register == REG_SYMBADDR && op->type == ASOP_RETURN) {
             char* temp = calloc(1, (lea_format_min_length + strlen(as->last_imm_str)) * sizeof(char));
@@ -402,7 +483,14 @@ void as_compile_binop(as_function_T* as, char** as_text, as_op_T* op, char* src)
             instr = "add";
         } else if (op->binop_type == BINOP_MINUS) {
             instr = "sub";
+        } else if (op->binop_type == BINOP_LET) {
+            instr = "cmp";
+            as->last_comparison = COMP_L;
+        } else {
+            return err_unexpected_as_op(op);
         }
+    } else {
+        return err_unexpected_as_op(op);
     }
     char* temp = calloc(1, (binop_format_min_length + strlen(instr) + strlen(src)));
     char* reg = data_type_size_register(math_registers[as->used_reg], op->op_size);
@@ -431,5 +519,9 @@ char* as_op_type_string(enum op_type type) {
         case ASOP_FREEDEST: return "freedest"; break;
         case ASOP_SYMBOLREF: return "symbref"; break;
         case ASOP_SYMBADDRREF: return "symbaddrref"; break;
+        case ASOP_OPENIF: return "openif"; break;
+        case ASOP_CLOSEIF: return "closeif"; break;
+        case ASOP_ELSE: return "else"; break;
+        default: return "unknown"; break;
     }
 }
