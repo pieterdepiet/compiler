@@ -7,6 +7,9 @@
 scope_T* init_scope(scope_T* parent) {
     scope_T* scope = calloc(1, sizeof(struct SCOPE_STRUCT));
     scope->parent = parent;
+    if (parent) {
+        scope->return_type = parent->return_type;
+    }
     scope->variable_names = (void*) 0;
     scope->variable_types = (void*) 0;
     return scope;
@@ -51,16 +54,26 @@ int scope_get_variable_id(scope_T* scope, char* name) {
 }
 size_t scope_get_variable_relative_location(scope_T* scope, char* name) {
     size_t curr_location = 0;
+    if (scope->parent->parent != (void*) 0) {
+        curr_location = scope_get_scope_size(scope->parent);
+    }
     for (size_t i = 0; i < scope->variables_size; i++) {
         curr_location += scope->variable_types[i]->primitive_size;
         if (utils_strcmp(scope->variable_names[i], name)) {
             return curr_location;
         }
     }
-    return -1;
+    if (scope->parent->parent) {
+        return scope_get_variable_relative_location(scope->parent, name);
+    } else {
+        return -1;
+    }
 }
 size_t scope_get_scope_size(scope_T* scope) {
     size_t size = 0;
+    if (scope->parent->parent != (void*) 0) {
+        size = scope_get_scope_size(scope->parent);
+    }
     for (size_t i = 0; i < scope->variables_size; i++) {
         size += scope->variable_types[i]->primitive_size;
     }

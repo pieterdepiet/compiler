@@ -10,6 +10,7 @@ typedef struct SCOPE_STRUCT {
     size_t functions_size;
     int has_this;
     struct SCOPE_STRUCT* parent;
+    data_type_T* return_type;
 } scope_T;
 
 scope_T* init_scope(scope_T* parent);
