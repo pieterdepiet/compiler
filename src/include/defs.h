@@ -2,12 +2,12 @@
 #define DEFS_H
 #include "scope.h"
 
-void defs_define_all(scope_T* global_scope);
+void defs_define_all(global_T* global_scope);
 
-void defs_define(scope_T* scope, char* name, fspec_T* fspec);
+void defs_define(global_T* scope, fspec_T* fspec);
 
-void defs_define_io(scope_T* scope);
+void defs_define_io(global_T* scope, data_type_T* null_type);
 
-void defs_define_int(scope_T* scope);
-void defs_define_string(scope_T* scope);
+void defs_define_int(global_T* scope);
+void defs_define_string(global_T* scope);
 #endif
