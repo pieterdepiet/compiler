@@ -1,9 +1,12 @@
 #include "include/AST.h"
 #include "include/errors.h"
 
-AST_T* init_ast(int type) {
+AST_T* init_ast(int type, struct PARSER_STRUCT* parser) {
     AST_T* ast = calloc(1, sizeof(struct AST_STRUCT));
     ast->type = type;
+    ast->lineno = parser->lexer->lineno;
+    ast->charno = parser->lexer->charno;
+    ast->index = parser->lexer->i;
 
     // AST_VARIABLE_DEFINITION
     ast->variable_definition_type = (void*) 0;
@@ -37,9 +40,11 @@ AST_T* init_ast(int type) {
     // AST_PLUS, AST_MINUS, AST_TIMES, AST_SLASH, AST_EQ, AST_NEQ, AST_GRT, AST_LET, AST_GREQ, AST_LEEQ, AST_AND, AST_OR
     ast->left_hand = (void*) 0;
     ast->right_hand = (void*) 0;
-    ast->parenthetical = NOT_PARENTHETICAL;
-    // AST_NOT
-    ast->not_value = (void*) 0;
+    ast->binop_type = 0;
+    ast->parenthetical = 0;
+    // AST_UNOP
+    ast->unop_type = 0;
+    ast->unop_value = (void*) 0;
 
     // AST_IF
     ast->if_condition = (void*) 0;
@@ -77,16 +82,6 @@ ast_arglist_T* init_ast_arglist() {
     return arglist;
 }
 
-AST_T* ast_create_int(int i) {
-    AST_T* ast_int = init_ast(AST_INT);
-    ast_int->int_value = i;
-    return ast_int;
-}
-AST_T* ast_create_string(char* str) {
-    AST_T* ast_string = init_ast(AST_STRING);
-    ast_string->string_value = str;
-    return ast_string;
-}
 enum expr_level ast_binop_level(int binop_type) {
     if (binop_type <= BINOP_MEMBER) {
         return EXPR_MEMBER;
@@ -112,7 +107,7 @@ enum expr_level ast_expr_level(AST_T* node) {
     switch (node->type) {
         case AST_VARIABLE: case AST_FUNCTION_CALL: case AST_INT: case AST_FLOAT: case AST_DOUBLE: case AST_STRING: case AST_NOOP: return EXPR_SINGLE_THING; break;
         case AST_MEMBER: return EXPR_MEMBER; break;
-        case AST_NOT: return EXPR_NOT; break;
+        case AST_UNOP: return EXPR_UNOP; break;
         case AST_BINOP: return ast_binop_level(node->binop_type); break;
         default: err_enum_out_of_range("expression node type", node->type); break;
     }
@@ -160,7 +155,7 @@ char* ast_node_type_string(AST_T* node) {
         case AST_NOOP: return "noop"; break;
         case AST_COMPOUND: return "compound"; break;
         case AST_BINOP: return "binop"; break;
-        case AST_NOT: return "not"; break;
+        case AST_UNOP: return "unop"; break;
         case AST_IF: return "if"; break;
         case AST_ELIF: return "elif"; break;
         case AST_ELSE: return "else"; break;

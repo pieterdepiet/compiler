@@ -33,7 +33,7 @@ typedef struct AST_STRUCT {
         AST_COMPOUND, // 10
 
         AST_BINOP, // 11
-        AST_NOT, // 12
+        AST_UNOP, // 12
 
         AST_IF, // 13
         AST_ELIF, // 14
@@ -48,7 +48,8 @@ typedef struct AST_STRUCT {
         AST_HEADER, // 20
 
         AST_MEMBER, // 21
-        AST_NEW // 22
+        AST_NEW, // 22
+        AST_CONSTRUCTOR // 23
     } type;
 
     // AST_VARIABLE_DEFINITION
@@ -98,7 +99,7 @@ typedef struct AST_STRUCT {
     // AST_PLUS, AST_MINUS, AST_TIMES, AST_SLASH, AST_EQ, AST_NEQ, AST_GRT, AST_LET, AST_GREQ, AST_LEEQ, AST_AND, AST_OR, AST_VARIABLE_ASSIGNMENT
     struct AST_STRUCT* left_hand;
     struct AST_STRUCT* right_hand;
-    enum {
+    enum binop_type {
         BINOP_MEMBER,
         BINOP_TIMES,
         BINOP_DIV,
@@ -114,12 +115,17 @@ typedef struct AST_STRUCT {
         BINOP_OR,
         BINOP_ASSIGN
     } binop_type;
+    
     enum parenthetical {
         NOT_PARENTHETICAL,
         PARENTHETICAL
     } parenthetical;
-    // AST_NOT
-    struct AST_STRUCT* not_value;
+    // AST_UNOP
+    enum unop_type {
+        UNOP_NOT,
+        UNOP_NEG
+    } unop_type;
+    struct AST_STRUCT* unop_value;
 
     // AST_IF
     struct AST_STRUCT* if_condition;
@@ -162,9 +168,17 @@ typedef struct AST_STRUCT {
 
     // AST_NEW
     struct AST_STRUCT* new_function_call;
-} AST_T;
 
-AST_T* init_ast(int type);
+    // AST_CONSTRUCTOR
+    struct AST_STRUCT* constructor_function_body;
+    ast_arglist_T* constructor_args;
+    
+    size_t lineno;
+    size_t charno;
+    size_t index;
+} AST_T;
+struct PARSER_STRUCT;
+AST_T* init_ast(int type, struct PARSER_STRUCT* parser);
 ast_arglist_T* init_ast_arglist();
 
 AST_T* ast_create_string(char* str);
@@ -175,7 +189,7 @@ AST_T* ast_get_copy(AST_T* source);
 enum expr_level {
     EXPR_SINGLE_THING,
     EXPR_MEMBER,
-    EXPR_NOT,
+    EXPR_UNOP,
     EXPR_MULDIV,
     EXPR_TERM,
     EXPR_COMPARISON,
