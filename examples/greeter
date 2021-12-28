@@ -8,10 +8,15 @@ class Greeter {
         prints(this.greetstring);
         this.greetCount += 1;
     }
+    fun greet(_ str : String) {
+        prints(str);
+    }
 }
+
 fun start() {
     var g : Greeter = new Greeter();
     var a : String = "Hello world!";
     g.setGreet(to: a);
     g.greet();
+    g.greet("Bye!");
 }
