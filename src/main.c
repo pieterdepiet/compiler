@@ -28,7 +28,7 @@ int compile(int argc, char* argv[]) {
         "+--------------+\n");
     as_file_T* as = init_as_file(); // As_file: stores global data and function definitions
     visitor_T* visitor = init_visitor(as); // Visitor: visits AST, makes a list of assembly operations and does things like type checking
-    visitor_visit_global(visitor, root); // Visit root ast
+    visitor_visit_global(visitor->global_scope, root); // Visit root ast
     printf(
         "|   Visited    |\n"
         "+--------------+\n");
