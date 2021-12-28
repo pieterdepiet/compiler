@@ -36,7 +36,11 @@ typedef struct ASSEMBLY_OPERATION_STRUCT {
         ASOP_SYMBADDRREF,
         ASOP_OPENIF,
         ASOP_ELSE,
-        ASOP_CLOSEIF
+        ASOP_CLOSEIF,
+        ASOP_UNOP,
+        ASOP_LEA,
+        ASOP_MEMTOREG,
+        ASOP_LOCALMEMB
     } type;
     char* name;
     size_t var_location;
@@ -46,10 +50,11 @@ typedef struct ASSEMBLY_OPERATION_STRUCT {
     as_value_U value;
     data_type_T* data_type;
     int binop_type;
+    int unop_type;
     size_t bb_no;
     struct ASSEMBLY_OPERATION_STRUCT* bb_ptr;
 } as_op_T;
-typedef struct assembly_function_struct {
+typedef struct ASSEMBLY_FUNCTION_STRUCT {
     char* name;
     list_T* operations;
     size_t last_stack_offset;
@@ -59,9 +64,12 @@ typedef struct assembly_function_struct {
     size_t mem_loc;
     int memb_offset;
     enum registers {
+        REG_VOID,
         REG_IMM,
         REG_MEM,
+        REG_MEMADDR,
         REG_MEMB,
+        REG_MEMBADDR,
         REG_SYMB,
         REG_SYMBADDR,
         REG_AX,
@@ -77,13 +85,13 @@ typedef struct assembly_function_struct {
     size_t dest_size;
     size_t function_no;
     size_t last_bb;
+    char* zeroreg;
+    size_t zerouses;
     enum comparison {
         COMP_A,
         COMP_AE,
         COMP_B,
         COMP_BE,
-        COMP_CXZ,
-        COMP_ECXZ,
         COMP_E,
         COMP_Z,
         COMP_G,
@@ -95,11 +103,11 @@ typedef struct assembly_function_struct {
         COMP_NB,
         COMP_NBE,
         COMP_NE,
+        COMP_NZ,
         COMP_NG,
         COMP_NGE,
         COMP_NL,
-        COMP_NLE,
-        COMP_NZ
+        COMP_NLE
     } last_comparison;
 } as_function_T;
 typedef struct assembly_data_struct {
