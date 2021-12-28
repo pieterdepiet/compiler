@@ -1,15 +1,15 @@
 fun start(_ argc : Int) {
     if (argc < 2) {
         prints("No args");
-    } else if (argc < 3) {
+    } else if (argc == 2) {
         prints("One arg");
-    } else if (argc < 4) {
+    } else if (argc == 3) {
         prints("Two args");
     } else {
-        if (argc < 5) {
-            prints("Three args");
-        } else {
+        if (argc > 4) {
             prints("More than three args");
+        } else {
+            prints("Three args");
         }
     }
 }
