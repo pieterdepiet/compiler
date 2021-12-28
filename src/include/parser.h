@@ -42,10 +42,9 @@ AST_T* parser_parse_statements(parser_T* parser);
 AST_T* parser_parse_headers(parser_T* parser, int headers_type);
 
 AST_T* parser_parse_binop(parser_T* parser, AST_T* left_hand, int op_type);
+AST_T* parser_parse_unop(parser_T* parser);
 AST_T* parser_parse_member(parser_T* parser, AST_T* left_hand);
 AST_T* parser_parse_new(parser_T* parser);
-
-AST_T* parser_parse_not(parser_T* parser);
 
 AST_T* parser_parse_if(parser_T* parser);
 

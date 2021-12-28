@@ -151,6 +151,7 @@ AST_T* parser_parse_single_thing(parser_T* parser) {
         case TOKEN_STRING: return parser_parse_string(parser); break;
         case TOKEN_FLOAT: return parser_parse_float(parser); break;
         case TOKEN_DOUBLE: return parser_parse_double(parser); break;
+        case TOKEN_EXMARK: case TOKEN_MINUS: return parser_parse_unop(parser); break;
         default: err_unexpected_token(parser, -1); return (void*) 0; break;
     }
 }
@@ -162,7 +163,7 @@ AST_T* parser_parse_lparen(parser_T* parser) {
 }
 
 AST_T* parser_parse_variable_definition(parser_T* parser) {
-    AST_T* ast_variable_definition = init_ast(AST_VARIABLE_DEFINITION);
+    AST_T* ast_variable_definition = init_ast(AST_VARIABLE_DEFINITION, parser);
     parser_eat(parser, TOKEN_ID); // var
     ast_variable_definition->variable_definition_name = parser->current_token->value;
     parser_eat(parser, TOKEN_ID); // varname
@@ -180,7 +181,7 @@ AST_T* parser_parse_variable_definition(parser_T* parser) {
     return ast_variable_definition;
 }
 AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
-    AST_T* ast_variable_assignment = init_ast(AST_BINOP);
+    AST_T* ast_variable_assignment = init_ast(AST_BINOP, parser);
     ast_variable_assignment->binop_type = BINOP_ASSIGN;
     int assignment_type = 0;
     switch (parser->current_token->type) {
@@ -194,7 +195,7 @@ AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
     if (assignment_type < 0) {
         ast_variable_assignment->right_hand = parser_parse_single_thing(parser);
     } else {
-        ast_variable_assignment->right_hand = init_ast(AST_BINOP);
+        ast_variable_assignment->right_hand = init_ast(AST_BINOP, parser);
         ast_variable_assignment->right_hand->binop_type = assignment_type;
         ast_variable_assignment->right_hand->right_hand = parser_parse_single_thing(parser);
     }
@@ -221,7 +222,7 @@ AST_T* parser_parse_variable_assignment(parser_T* parser, AST_T* variable) {
     }
 }
 AST_T* parser_parse_function_definition(parser_T* parser) {
-    AST_T* ast_function_definition = init_ast(AST_FUNCTION_DEFINITION);
+    AST_T* ast_function_definition = init_ast(AST_FUNCTION_DEFINITION, parser);
     parser_eat(parser, TOKEN_ID); // fun
     ast_function_definition->function_definition_name = parser->current_token->value;
     ast_function_definition->function_definition_args = init_ast_arglist();
@@ -286,14 +287,14 @@ AST_T* parser_parse_function_definition(parser_T* parser) {
 }
 AST_T* parser_parse_variable(parser_T* parser) {
     char* token_value = parser->current_token->value;
-    parser_eat(parser, TOKEN_ID);
-    AST_T* ast_variable = init_ast(AST_VARIABLE);
+    AST_T* ast_variable = init_ast(AST_VARIABLE, parser);
     ast_variable->variable_name = token_value;
+    parser_eat(parser, TOKEN_ID);
 
     return ast_variable;
 }
 AST_T* parser_parse_function_call(parser_T* parser, AST_T* function) {
-    AST_T* function_call = init_ast(AST_FUNCTION_CALL);
+    AST_T* function_call = init_ast(AST_FUNCTION_CALL, parser);
     
     parser_eat(parser, TOKEN_LPAREN);
     if (parser->current_token->type == TOKEN_RPAREN) {
@@ -321,9 +322,9 @@ AST_T* parser_parse_function_call(parser_T* parser, AST_T* function) {
             }
         }
         while (parser->prev_token->type != TOKEN_RPAREN) {
-            parser_eat(parser, TOKEN_ID);
             list_add(&function_call->function_call_named_names, &function_call->function_call_named_size, parser->current_token->value);
             function_call->function_call_named_size--;
+            parser_eat(parser, TOKEN_ID);
             parser_eat(parser, TOKEN_COLON);
             AST_T* ast_expr = parser_parse_expr(parser);
             list_add(&function_call->function_call_named_values, &function_call->function_call_named_size, ast_expr);
@@ -356,14 +357,15 @@ AST_T* parser_parse_function_call(parser_T* parser, AST_T* function) {
 }
 
 AST_T* parser_parse_string(parser_T* parser) {
-    AST_T* ast_string = ast_create_string(parser->current_token->value);
+    AST_T* ast_string = init_ast(AST_STRING, parser);
+    ast_string->string_value = parser->current_token->value;
 
     parser_eat(parser, TOKEN_STRING);
 
     return ast_string;
 }
 AST_T* parser_parse_int(parser_T* parser) {
-    AST_T* ast_int = init_ast(AST_INT);
+    AST_T* ast_int = init_ast(AST_INT, parser);
 
     int int_value = 0;
     size_t len = strlen(parser->current_token->value);
@@ -375,7 +377,7 @@ AST_T* parser_parse_int(parser_T* parser) {
     return ast_int;
 }
 AST_T* parser_parse_float(parser_T* parser) {
-    AST_T* ast_float = init_ast(AST_FLOAT);
+    AST_T* ast_float = init_ast(AST_FLOAT, parser);
     float float_value = 0;
     size_t len = strlen(parser->current_token->value);
     int dotpos = -1;
@@ -396,7 +398,7 @@ AST_T* parser_parse_float(parser_T* parser) {
     return ast_float;
 }
 AST_T* parser_parse_double(parser_T* parser) {
-    AST_T* ast_double = init_ast(AST_DOUBLE);
+    AST_T* ast_double = init_ast(AST_DOUBLE, parser);
     double double_value = 0;
     size_t len = strlen(parser->current_token->value);
     int dotpos = -1;
@@ -418,7 +420,7 @@ AST_T* parser_parse_double(parser_T* parser) {
 }
 
 AST_T* parser_parse_statements(parser_T* parser) {
-    AST_T* compound = init_ast(AST_COMPOUND);
+    AST_T* compound = init_ast(AST_COMPOUND, parser);
 
     while (parser->current_token->type != TOKEN_EOF && parser->current_token->type != TOKEN_RBRACE) {
         AST_T* ast_statement = parser_parse_statement(parser);
@@ -433,7 +435,7 @@ AST_T* parser_parse_statements(parser_T* parser) {
 }
 
 AST_T* parser_parse_binop(parser_T* parser, AST_T* left_hand, int op_type) {
-    AST_T* ast_binop = init_ast(AST_BINOP);
+    AST_T* ast_binop = init_ast(AST_BINOP, parser);
     ast_binop->binop_type = op_type;
     parser_eat(parser, parser->current_token->type); // Just advance
     ast_binop->right_hand = parser_parse_single_thing(parser);
@@ -455,8 +457,8 @@ AST_T* parser_parse_binop(parser_T* parser, AST_T* left_hand, int op_type) {
     }
 }
 AST_T* parser_parse_member(parser_T* parser, AST_T* left_hand) {
-    AST_T* ast_member = init_ast(AST_MEMBER);
     parser_eat(parser, TOKEN_DOT);
+    AST_T* ast_member = init_ast(AST_MEMBER, parser);
     ast_member->member_parent = left_hand;
     ast_member->member_name = parser->current_token->value;
     parser_eat(parser, TOKEN_ID);
@@ -477,16 +479,21 @@ AST_T* parser_parse_member(parser_T* parser, AST_T* left_hand) {
         return left_hand;
     }
 }
-AST_T* parser_parse_not(parser_T* parser) {
-    AST_T* ast_not = init_ast(AST_NOT);
-    parser_eat(parser, TOKEN_EXMARK);
-    ast_not->not_value = parser_parse_expr(parser);
-    return ast_not;
+AST_T* parser_parse_unop(parser_T* parser) {
+    AST_T* ast_unop = init_ast(AST_UNOP, parser);
+    if (parser->current_token->type == TOKEN_EXMARK) {
+        ast_unop->unop_type = UNOP_NOT;
+    } else if (parser->current_token->type == TOKEN_MINUS) {
+        ast_unop->unop_type = UNOP_NEG;
+    }
+    parser_eat(parser, parser->current_token->type);
+    ast_unop->unop_value = parser_parse_single_thing(parser);
+    return ast_unop;
 }
 
 
 AST_T* parser_parse_if(parser_T* parser) {
-    AST_T* ast_if = init_ast(AST_IF);
+    AST_T* ast_if = init_ast(AST_IF, parser);
     AST_T* last_statement = ast_if;
     parser_eat(parser, TOKEN_ID);
     parser_eat(parser, TOKEN_LPAREN);
@@ -498,14 +505,14 @@ AST_T* parser_parse_if(parser_T* parser) {
     while (parser->current_token->type == TOKEN_ID && utils_strcmp(parser->current_token->value, "else")) {
         parser_eat(parser, TOKEN_ID);
         if (parser->current_token->type==TOKEN_LBRACE) {
-            AST_T* ast_else = init_ast(AST_ELSE);
+            AST_T* ast_else = init_ast(AST_ELSE, parser);
             parser_eat(parser, TOKEN_LBRACE);
             ast_else->else_body = parser_parse_statements(parser);
             parser_eat(parser, TOKEN_RBRACE);
             last_statement->next_statement = ast_else;
             break;
         } else if (parser->current_token->type == TOKEN_ID && utils_strcmp(parser->current_token->value, "if")) {
-            AST_T* ast_elif = init_ast(AST_ELIF);
+            AST_T* ast_elif = init_ast(AST_ELIF, parser);
             parser_eat(parser, TOKEN_ID);
             parser_eat(parser, TOKEN_LPAREN);
             ast_elif->elif_condition = parser_parse_expr(parser);
@@ -523,7 +530,7 @@ AST_T* parser_parse_if(parser_T* parser) {
 }
 
 AST_T* parser_parse_for(parser_T* parser) {
-    AST_T* ast_for = init_ast(AST_FOR);
+    AST_T* ast_for = init_ast(AST_FOR, parser);
     parser_eat(parser, TOKEN_ID);
     parser_eat(parser, TOKEN_LPAREN);
     ast_for->for_initializer = parser_parse_statement(parser);
@@ -538,7 +545,7 @@ AST_T* parser_parse_for(parser_T* parser) {
     return ast_for;
 }
 AST_T* parser_parse_while(parser_T* parser) {
-    AST_T* ast_while = init_ast(AST_WHILE);
+    AST_T* ast_while = init_ast(AST_WHILE, parser);
     parser_eat(parser, TOKEN_ID);
     parser_eat(parser, TOKEN_LPAREN);
     ast_while->while_condition = parser_parse_expr(parser);
@@ -550,8 +557,8 @@ AST_T* parser_parse_while(parser_T* parser) {
 }
 
 AST_T* parser_parse_return(parser_T* parser) {
+    AST_T* ast_return = init_ast(AST_RETURN, parser);
     parser_eat(parser, TOKEN_ID); // return
-    AST_T* ast_return = init_ast(AST_RETURN);
     ast_return->return_value = parser_parse_expr(parser);
     return ast_return;
 }
@@ -570,7 +577,7 @@ AST_T* parser_parse_header(parser_T* parser, int headers_type) {
     }
 }
 AST_T* parser_parse_header_normal_function(parser_T* parser) {
-    AST_T* ast_header = init_ast(AST_HEADER);
+    AST_T* ast_header = init_ast(AST_HEADER, parser);
     parser_eat(parser, TOKEN_ID);
     ast_header->header_function_name = parser->current_token->value;
     parser_eat(parser, TOKEN_ID);
@@ -631,7 +638,7 @@ AST_T* parser_parse_header_normal_function(parser_T* parser) {
     return ast_header;
 }
 AST_T* parser_parse_headers(parser_T* parser, int headers_type) {
-    AST_T* headers = init_ast(AST_HEADER_LIST);
+    AST_T* headers = init_ast(AST_HEADER_LIST, parser);
     while (parser->current_token->type != TOKEN_EOF) {
         AST_T* ast_header = parser_parse_header(parser, headers_type);
         headers->headers_size += 1;
@@ -641,7 +648,7 @@ AST_T* parser_parse_headers(parser_T* parser, int headers_type) {
     return headers;
 }
 AST_T* parser_parse_class_definition(parser_T* parser) {
-    AST_T* ast_class_definition = init_ast(AST_CLASS_DEFINITION);
+    AST_T* ast_class_definition = init_ast(AST_CLASS_DEFINITION, parser);
     parser_eat(parser, TOKEN_ID); // class
     ast_class_definition->class_name = parser->current_token->value;
     parser_eat(parser, TOKEN_ID); // <classname>
@@ -681,6 +688,58 @@ AST_T* parser_parse_class_definition(parser_T* parser) {
                 } else if (parser->lexer->newline == 0) {
                     err_unexpected_token(parser, TOKEN_SEMI);
                 }
+            } else if (utils_strcmp(parser->current_token->value, "constructor")) {
+                AST_T* ast_constructor = init_ast(AST_CONSTRUCTOR, parser);
+                ast_constructor->constructor_args = init_ast_arglist();
+                parser_eat(parser, TOKEN_ID); // constructor
+                parser_eat(parser, TOKEN_LPAREN);
+                while (parser->current_token->type != TOKEN_RPAREN) {
+                    if (parser->current_token->type != TOKEN_UNDERSCORE) {
+                        break;
+                    }
+                    parser_eat(parser, TOKEN_UNDERSCORE);
+                    char* arg_name = parser->current_token->value;
+                    parser_eat(parser, TOKEN_ID);
+                    parser_eat(parser, TOKEN_COLON);
+                    char* arg_type = parser->current_token->value;
+                    parser_eat(parser, TOKEN_ID);
+                    list_add(&ast_constructor->constructor_args->unnamed_types, &ast_constructor->constructor_args->unnamed_size, arg_type);
+                    ast_constructor->constructor_args->unnamed_size -= 1;
+                    list_add(&ast_constructor->constructor_args->unnamed_names, &ast_constructor->constructor_args->unnamed_size, arg_name);
+                    if (parser->current_token->type == TOKEN_COMMA) {
+                        parser_eat(parser, TOKEN_COMMA);
+                    } else if (parser->current_token->type != TOKEN_RPAREN) {
+                        err_unexpected_token(parser, -1);
+                    }
+                }
+                while (parser->current_token->type != TOKEN_RPAREN) {
+                    char* public_name = parser->current_token->value;
+                    char* inside_name;
+                    parser_eat(parser, TOKEN_ID);
+                    if (parser->current_token->type == TOKEN_ID) {
+                        inside_name = parser->current_token->value;
+                        parser_eat(parser, TOKEN_ID);
+                    } else {
+                        inside_name = public_name;
+                    }
+                    parser_eat(parser, TOKEN_COLON);
+                    char* arg_type = parser->current_token->value;
+                    parser_eat(parser, TOKEN_ID);
+                    list_add(&ast_constructor->constructor_args->named_types, &ast_constructor->constructor_args->named_size, arg_type);
+                    ast_constructor->constructor_args->named_size -= 1;        
+                    list_add(&ast_constructor->constructor_args->named_public_names, &ast_constructor->constructor_args->named_size, public_name);
+                    ast_constructor->constructor_args->named_size -= 1;        
+                    list_add(&ast_constructor->constructor_args->named_inside_names, &ast_constructor->constructor_args->named_size, inside_name);
+                    if (parser->current_token->type == TOKEN_COMMA) {
+                        parser_eat(parser, TOKEN_COMMA);
+                    } else if (parser->current_token->type != TOKEN_RPAREN) {
+                        err_unexpected_token(parser, -1);
+                    }
+                }
+                parser_eat(parser, TOKEN_RPAREN);
+                parser_eat(parser, TOKEN_LBRACE);
+                parser_parse_statements(parser);
+                parser_eat(parser, TOKEN_RBRACE);
             }
         } else {
             err_unexpected_token(parser, TOKEN_ID);
@@ -690,7 +749,7 @@ AST_T* parser_parse_class_definition(parser_T* parser) {
     return ast_class_definition;
 }
 AST_T* parser_parse_new(parser_T* parser) {
-    AST_T* ast_new = init_ast(AST_NEW);
+    AST_T* ast_new = init_ast(AST_NEW, parser);
     parser_eat(parser, TOKEN_ID);
     ast_new->new_function_call = parser_parse_expr(parser);
     return ast_new;
