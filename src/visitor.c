@@ -5,40 +5,44 @@
 #include "include/defs.h"
 #define prefix "_Pre"
 #define prefix_len 4
+
+
+
 visitor_T* init_visitor(as_file_T* as_file) {
     visitor_T* visitor = calloc(1, sizeof(struct VISITOR_STRUCT));
-    visitor->noop = init_ast(AST_NOOP);
 
-    visitor->global_scope = init_scope((void*) 0);
+
+    visitor->global_scope = init_global_scope(visitor);
     defs_define_all(visitor->global_scope);
 
-    visitor->null_type = scope_get_variable(visitor->global_scope, "Null");
-    visitor->int_type = scope_get_variable(visitor->global_scope, "Int");
-    visitor->bool_type = scope_get_variable(visitor->global_scope, "Bool");
 
-    visitor->string_type = scope_get_variable(visitor->global_scope, "String");
+    visitor->null_type = scope_get_typeg(visitor->global_scope, "Null");
+    visitor->int_type = scope_get_typeg(visitor->global_scope, "Int");
+    visitor->bool_type = scope_get_typeg(visitor->global_scope, "Bool");
+
+    visitor->string_type = scope_get_typeg(visitor->global_scope, "String");
     visitor->as_file = as_file;
     
     return visitor;
 }
-data_type_T* get_data_type(visitor_T* visitor, scope_T* scope, char* name) {
+data_type_T* get_data_type(scope_T* scope, char* name) {
     if (name == (void*) 0) {
         return (void*) 0;
     } else if (utils_strcmp(name, "Int")) {
-        return visitor->int_type->class_type;
+        return scope->visitor->int_type;
     } else if (utils_strcmp(name, "String")) {
-        return visitor->string_type->class_type;
+        return scope->visitor->string_type;
     } else {
-        data_type_T* data_type = scope_get_variable(visitor->global_scope, name);
+        data_type_T* data_type = scope_get_type(scope, name);
         if (data_type) {
-            return data_type->class_type;
+            return data_type;
         } else {
             return (void*) 0;
         }
     }
 }
-int node_to_data_type(visitor_T* visitor, data_type_T* data_type, AST_T* node) {
-    if (data_type == visitor->int_type) {
+int node_to_data_type(scope_T* scope, data_type_T* data_type, AST_T* node) {
+    if (data_type == scope->visitor->int_type) {
         if (node->type == AST_INT) {
             return 0;
         } else if (node->type == AST_FLOAT) {
@@ -52,7 +56,7 @@ int node_to_data_type(visitor_T* visitor, data_type_T* data_type, AST_T* node) {
     return -1;
 }
 
-char* visitor_data_type_to_arg_name(visitor_T* visitor, scope_T* scope, data_type_T* data_type) {
+char* visitor_data_type_to_arg_name(scope_T* scope, data_type_T* data_type) {
     if (data_type->primitive_type == TYPE_INT) {
         return "i";
     } else if (data_type->primitive_type == TYPE_STRING) {
@@ -66,22 +70,23 @@ char* visitor_data_type_to_arg_name(visitor_T* visitor, scope_T* scope, data_typ
     }
 }
 
-data_type_T* visitor_visit(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+data_type_T* visitor_visit(scope_T* scope, AST_T* node, data_type_T* hint) {
     // printf("Visit node type %s\n", ast_node_type_string(node));
     switch (node->type) {
-        case AST_INT: return visitor_visit_int(visitor, scope, node, as_function); break;
-        case AST_STRING: return visitor_visit_string(visitor, scope, node, as_function); break;
-        case AST_VARIABLE_DEFINITION: return visitor_visit_variable_definition(visitor, scope, node, as_function); break;
-        case AST_VARIABLE: return visitor_visit_variable(visitor, scope, node, as_function); break;
-        case AST_FUNCTION_CALL: return visitor_visit_function_call(visitor, scope, node, as_function); break;
-        case AST_BINOP: return visitor_visit_binop(visitor, scope, node, as_function); break;
-        case AST_MEMBER: return visitor_visit_member(visitor, scope, node, as_function); break;
-        case AST_NEW: return visitor_visit_new(visitor, scope, node, as_function); break;
+        case AST_INT: return visitor_visit_int_as(scope, node, hint?hint:scope->visitor->int_type); break;
+        case AST_STRING: return visitor_visit_string(scope, node); break;
+        case AST_VARIABLE_DEFINITION: return visitor_visit_variable_definition(scope, node); break;
+        case AST_VARIABLE: return visitor_visit_variable(scope, node); break;
+        case AST_FUNCTION_CALL: return visitor_visit_function_call(scope, node); break;
+        case AST_BINOP: return visitor_visit_binop(scope, node, hint); break;
+        case AST_MEMBER: return visitor_visit_member(scope, node); break;
+        case AST_NEW: return visitor_visit_new(scope, node); break;
+        case AST_UNOP: return visitor_visit_unop(scope, node, hint); break;
         default: err_unexpected_node(node); break;
     }
     return (void*) 0;
 }
-as_value_U visitor_visit_data(visitor_T* visitor, data_type_T* data_type, AST_T* node) {
+as_value_U visitor_visit_data(scope_T* scope, data_type_T* data_type, AST_T* node) {
     as_value_U value = {0};
     if (data_type->primitive_type == TYPE_INT) {
         if (node->type != AST_INT) {
@@ -94,450 +99,592 @@ as_value_U visitor_visit_data(visitor_T* visitor, data_type_T* data_type, AST_T*
     }
     return value;
 }
-data_type_T* visitor_visit_global(visitor_T* visitor, AST_T* root) {
+data_type_T* visitor_visit_global(global_T* global_scope, AST_T* root) {
     for (size_t i = 0; i < root->compound_size; i++) {
         // printf("Visit global node %s\n", ast_node_type_string(root->compound_value[i]));
         if (root->compound_value[i]->type == AST_VARIABLE_DEFINITION) {
-            data_type_T* data_type = get_data_type(visitor, visitor->global_scope, root->compound_value[i]->variable_definition_type);
+            data_type_T* data_type = scope_get_typeg(global_scope, root->compound_value[i]->variable_definition_type);
             if (!data_type) {
-                err_unknown_type(root->compound_value[i]->variable_definition_type);
+                err_unknown_type(root->compound_value[i]->variable_definition_type, root->compound_value[i]);
             }
-            if (node_to_data_type(visitor, data_type, root->compound_value[i]->variable_definition_value) != 0) {
-                err_node_not_convertable_to_data_type(root->compound_value[i]->variable_definition_value, data_type);
-            }
-            as_data_T* as_data = init_as_data(root->compound_value[i]->variable_definition_name, data_type);
-            as_data->value = visitor_visit_data(visitor, data_type, root->compound_value[i]->variable_definition_value);
-            if (data_type != visitor->int_type) {
-                err_bad_global_type(data_type);
-            }
-            as_add_data(visitor->as_file, as_data);
-            scope_add_variable(visitor->global_scope, root->compound_value[i]->variable_definition_name, data_type);
+            // if (node_to_data_type(global_scope, data_type, root->compound_value[i]->variable_definition_value) != 0) {
+                // err_node_not_convertable_to_data_type(root->compound_value[i]->variable_definition_value, data_type);
+            // }
+            // as_data_T* as_data = init_as_data(root->compound_value[i]->variable_definition_name, data_type);
+            // as_data->value = visitor_visit_data(global_scope, data_type, root->compound_value[i]->variable_definition_value);
+            // if (data_type != global_scope->visitor->int_type) {
+            //     err_bad_global_type(data_type);
+            // }
+            // as_add_data(global_scope->visitor->as_file, as_data);
+            // scope_add_variable(global_scope->visitor->global_scope, root->compound_value[i]->variable_definition_name, data_type);
         } else if (root->compound_value[i]->type == AST_FUNCTION_DEFINITION) {
             as_function_T* as_function = init_as_function(root->compound_value[i]->function_definition_name);
-            scope_T* function_scope = init_scope(visitor->global_scope);
-            fspec_T* function_definition = visitor_visit_function_definition(visitor, function_scope, root->compound_value[i], as_function);
+            scope_T* function_scope = init_function_scope(global_scope, as_function);
+            fspec_T* function_definition = visitor_visit_function_definition(function_scope, root->compound_value[i]);
+            function_definition->name = root->compound_value[i]->function_definition_name;
             if (utils_strcmp(as_function->name, "start")) {
                 as_function->name = "_start";
             } else {
                 function_definition->symbol_name = calloc(1, (prefix_len + 4 + strlen(root->compound_value[i]->function_definition_name) + 1));
                 sprintf(function_definition->symbol_name, prefix "%lu%s", strlen(root->compound_value[i]->function_definition_name), root->compound_value[i]->function_definition_name);
                 for (size_t j = 0; j < function_definition->unnamed_length; j++) {
-                    char* type_name = visitor_data_type_to_arg_name(visitor, function_scope, function_definition->unnamed_types[j]);
+                    char* type_name = visitor_data_type_to_arg_name(function_scope, function_definition->unnamed_types[j]);
                     function_definition->symbol_name = realloc(function_definition->symbol_name, (strlen(function_definition->symbol_name) + strlen(type_name) + 2) * sizeof(char));
                     sprintf(function_definition->symbol_name, "%s_%s", function_definition->symbol_name, type_name);
                 }
                 for (size_t j = 0; j < function_definition->named_length; j++) {
-                    char* type_name = visitor_data_type_to_arg_name(visitor, function_scope, function_definition->named_types[j]);
+                    char* type_name = visitor_data_type_to_arg_name(function_scope, function_definition->named_types[j]);
                     function_definition->symbol_name = realloc(function_definition->symbol_name, (strlen(function_definition->symbol_name) + 4 + strlen(function_definition->named_names[j]) + strlen(type_name)) * sizeof(char));
                     sprintf(function_definition->symbol_name, "%s%lu%s%s", function_definition->symbol_name, strlen(function_definition->named_names[j]), function_definition->named_names[j], type_name);
                 }
-                char* return_type_name = visitor_data_type_to_arg_name(visitor, function_scope, function_definition->return_type);
+                char* return_type_name = visitor_data_type_to_arg_name(function_scope, function_definition->return_type);
                 function_definition->symbol_name = realloc(function_definition->symbol_name, (strlen(function_definition->symbol_name) + strlen(return_type_name) + 1) * sizeof(char));
                 sprintf(function_definition->symbol_name, "%s%s", function_definition->symbol_name, return_type_name);
                 as_function->name = function_definition->symbol_name;
             }
-            scope_add_function(visitor->global_scope, root->compound_value[i]->function_definition_name, function_definition);
+            scope_add_functiong(global_scope, function_definition);
         } else if (root->compound_value[i]->type == AST_CLASS_DEFINITION) {
-            visitor_visit_class_definition(visitor, visitor->global_scope, root->compound_value[i]);
+            visitor_visit_class_definition(global_scope, root->compound_value[i]);
         } else {
             err_unexpected_node(root->compound_value[i]);
         }
     }
     return (void*) 0;
 }
-fspec_T* visitor_visit_function_definition(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+fspec_T* visitor_visit_function_definition(scope_T* scope, AST_T* node) {
     if (node->function_definition_return_type == (void*) 0) {
-        scope->return_type = visitor->null_type;
+        scope->return_type = scope->visitor->null_type;
     } else {
-        scope->return_type = get_data_type(visitor, scope, node->function_definition_return_type);
+        scope->return_type = get_data_type(scope, node->function_definition_return_type);
     }
     fspec_T* fspec = init_fspec(scope->return_type);
-    as_add_function(visitor->as_file, as_function);
+    as_add_function(scope->visitor->as_file, scope->as_function);
     for (size_t i = 0; i < node->function_definition_args->unnamed_size; i++) {
-        data_type_T* arg_type = get_data_type(visitor, scope, node->function_definition_args->unnamed_types[i]);
+        data_type_T* arg_type = get_data_type(scope, node->function_definition_args->unnamed_types[i]);
         scope_add_variable(scope, node->function_definition_args->unnamed_names[i], arg_type);
         fspec_add_unnamed_arg(fspec, arg_type);
         as_op_T* as_op = init_as_op(ASOP_ARGTOSTACK);
-        as_op->argno = as_function->argc;
-        as_function->argc++;
+        as_op->argno = scope->as_function->argc;
+        scope->as_function->argc++;
         as_op->op_size = arg_type->primitive_size;
         as_op->var_location = scope_get_variable_relative_location(scope, node->function_definition_args->unnamed_names[i]);
         if (as_op->var_location < 0) {
-            err_undefined_variable(node->function_definition_args->unnamed_types[i]);
+            err_undefined_variable(node->function_definition_args->unnamed_types[i], node);
         }
-        as_add_op_to_function(as_function, as_op);
+        as_add_op_to_function(scope->as_function, as_op);
     }
     for (size_t i = 0; i < node->function_definition_args->named_size; i++) {
-        data_type_T* arg_type = get_data_type(visitor, scope, node->function_definition_args->named_types[i]);
+        data_type_T* arg_type = get_data_type(scope, node->function_definition_args->named_types[i]);
         scope_add_variable(scope, node->function_definition_args->named_inside_names[i], arg_type);
         list_add(&fspec->named_types, &fspec->named_length, arg_type);
         fspec->named_length--;
         list_add(&fspec->named_names, &fspec->named_length, node->function_definition_args->named_public_names[i]);
         as_op_T* as_op = init_as_op(ASOP_ARGTOSTACK);
-        as_op->argno = as_function->argc;
-        as_function->argc++;
+        as_op->argno = scope->as_function->argc;
+        scope->as_function->argc++;
         as_op->op_size = arg_type->primitive_size;
         as_op->var_location = scope_get_variable_relative_location(scope, node->function_definition_args->named_inside_names[i]);
-        as_add_op_to_function(as_function, as_op);
+        as_add_op_to_function(scope->as_function, as_op);
     }
-    data_type_T* compound_type = visitor_visit_compound(visitor, scope, node->function_definition_body, scope->return_type, as_function);
-    if (compound_type == visitor->null_type) {
+    data_type_T* compound_type = visitor_visit_compound(scope, node->function_definition_body, scope->return_type);
+    if (compound_type == scope->visitor->null_type) {
         if (node->function_definition_return_type) {
             err_no_return_value(scope->return_type);
         } else {
             as_op_T* as_op = init_as_op(ASOP_RETNULL);
-            as_add_op_to_function(as_function, as_op);
+            as_add_op_to_function(scope->as_function, as_op);
         }
     }
-    as_function->scope_size = scope_get_scope_size(scope);
+
+    scope->as_function->scope_size = scope_get_scope_size(scope);
     return fspec;
 }
-data_type_T* visitor_visit_compound(visitor_T* visitor, scope_T* scope, AST_T* node, data_type_T* return_type, as_function_T* as_function) {
+data_type_T* visitor_visit_compound(scope_T* scope, AST_T* node, data_type_T* return_type) {
     int return_in_all_control_paths = 1;
     for (size_t i = 0; i < node->compound_size; i++) {
-        // printf("Visit compound node %s\n", ast_node_type_string(node->compound_value[i]));
+        printf("Visit compound node %s\n", ast_node_type_string(node->compound_value[i]));
         if (node->compound_value[i]->type == AST_RETURN) {
-            visitor_visit_return(visitor, scope, node->compound_value[i], as_function, return_type);
+            visitor_visit_return(scope, node->compound_value[i], return_type);
             return return_type;
         } else if (node->compound_value[i]->type == AST_IF) {
-            data_type_T* if_return_type = visitor_visit_if(visitor, scope, node->compound_value[i], as_function);
-            if (if_return_type == visitor->null_type) {
+            data_type_T* if_return_type = visitor_visit_if(scope, node->compound_value[i]);
+            if (if_return_type == scope->visitor->null_type) {
                 return_in_all_control_paths = 0;
             }
         } else {
-            visitor_visit(visitor, scope, node->compound_value[i], as_function);
+            visitor_visit(scope, node->compound_value[i], (void*) 0);
         }
     }
     if (return_in_all_control_paths) {
         return return_type;
     }
-    return visitor->null_type;
+    return scope->visitor->null_type;
 }
-data_type_T* visitor_visit_return(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function, data_type_T* return_type) {
-    data_type_T* value_type = visitor_visit(visitor, scope, node->return_value, as_function);
+data_type_T* visitor_visit_return(scope_T* scope, AST_T* node, data_type_T* return_type) {
+    data_type_T* value_type = visitor_visit(scope, node->return_value, return_type);
     if (value_type != return_type) {
-        err_conflicting_types(value_type, return_type);
+        err_conflicting_types(value_type, return_type, node);
     }
     as_op_T* as_op = init_as_op(ASOP_RETURN);
     as_op->op_size = value_type->primitive_size;
-    as_add_op_to_function(as_function, as_op);
+    as_add_op_to_function(scope->as_function, as_op);
     return value_type;
 }
 
-data_type_T* visitor_visit_binop(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+data_type_T* visitor_visit_binop(scope_T* scope, AST_T* node, data_type_T* hint) {
     if (node->binop_type == BINOP_ASSIGN) {
-        return visitor_visit_variable_assignment(visitor, scope, node, as_function);
+        return visitor_visit_variable_assignment(scope, node);
     }
-    data_type_T* left_hand_type = visitor_visit(visitor, scope, node->left_hand, as_function);
+    data_type_T* left_hand_type = visitor_visit(scope, node->left_hand, hint);
     as_op_T* as_op = init_as_op(ASOP_NEXTREG);
     as_op->op_size = left_hand_type->primitive_size;
-    as_add_op_to_function(as_function, as_op);
-    data_type_T* right_hand_type = visitor_visit(visitor, scope, node->right_hand, as_function);
+    as_add_op_to_function(scope->as_function, as_op);
+    data_type_T* right_hand_type = visitor_visit(scope, node->right_hand, left_hand_type);
     if (left_hand_type != right_hand_type) {
-        err_conflicting_types(left_hand_type, right_hand_type);
+        err_conflicting_types(left_hand_type, right_hand_type, node);
     }
     as_op = init_as_op(ASOP_BINOP);
     as_op->op_size = left_hand_type->primitive_size;
     as_op->binop_type = node->binop_type;
     as_op->data_type = left_hand_type;
-    as_add_op_to_function(as_function, as_op);
+    as_add_op_to_function(scope->as_function, as_op);
     as_op = init_as_op(ASOP_FREEREG);
-    as_add_op_to_function(as_function, as_op);
+    as_add_op_to_function(scope->as_function, as_op);
     if (ast_binop_is_bool(node->binop_type)) {
-        return visitor->bool_type;
+        return scope->visitor->bool_type;
     }
     return left_hand_type;
 }
-data_type_T* visitor_visit_int(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
-    as_op_T* asop = init_as_op(ASOP_SETLASTIMM);
-    asop->op_size = visitor->int_type->class_type->primitive_size;
-    asop->data_type = visitor->int_type->class_type;
-    asop->value.int_value = node->int_value;
-    as_add_op_to_function(as_function, asop);
-    return visitor->int_type->class_type;
+data_type_T* visitor_visit_unop(scope_T* scope, AST_T* node, data_type_T* hint) {
+    data_type_T* valuetype = visitor_visit(scope, node->unop_value, (void*) 0);
+    as_op_T* as_op = init_as_op(ASOP_UNOP);
+    if (node->unop_type == UNOP_NEG) {
+        scope->as_function->zerouses++;
+    }
+    as_op->unop_type = node->unop_type;
+    as_op->op_size = valuetype->primitive_size;
+    as_op->data_type = valuetype;
+    as_add_op_to_function(scope->as_function, as_op);
+    return valuetype;
 }
-data_type_T* visitor_visit_string(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+data_type_T* visitor_visit_int(scope_T* scope, AST_T* node) {
+    as_op_T* asop = init_as_op(ASOP_SETLASTIMM);
+    asop->op_size = scope->visitor->int_type->primitive_size;
+    asop->data_type = scope->visitor->int_type;
+    asop->value.int_value = node->int_value;
+    as_add_op_to_function(scope->as_function, asop);
+    return scope->visitor->int_type;
+}
+data_type_T* visitor_visit_int_as(scope_T* scope, AST_T* node, data_type_T* data_type) {
+    if (data_type->primitive_type == TYPE_CHAR || data_type->primitive_type == TYPE_UCHAR) {
+        as_op_T* asop = init_as_op(ASOP_SETLASTIMM);
+        if (node->int_value & ~0xff) {
+            err_overflow();
+        }
+        asop->op_size = sizeof(int);
+        asop->data_type = data_type;
+        asop->value.char_value = node->int_value;
+        as_add_op_to_function(scope->as_function, asop);
+        return data_type;
+    } else {
+        as_op_T* asop = init_as_op(ASOP_SETLASTIMM);
+        asop->op_size = sizeof(int);
+        asop->data_type = data_type;
+        asop->value.int_value = node->int_value;
+        as_add_op_to_function(scope->as_function, asop);
+        return data_type->primitive_type==TYPE_UINT?data_type:scope->visitor->int_type;
+    }
+}
+data_type_T* visitor_visit_string(scope_T* scope, AST_T* node) {
     char* name = calloc(1, (4 + 1 + 5 + 3) * sizeof(char));
-    sprintf(name, prefix ".string%lu", visitor->as_file->unnamed_string_count);
-    visitor->as_file->unnamed_string_count++;
-    as_data_T* as_data = init_as_data(name, visitor->string_type);
+    sprintf(name, prefix ".string%lu", scope->visitor->as_file->unnamed_string_count);
+    scope->visitor->as_file->unnamed_string_count++;
+    as_data_T* as_data = init_as_data(name, scope->visitor->string_type);
     as_data->value.ptr_value = node->string_value;
-    as_data->value_type = visitor->string_type->class_type;
-    as_add_data(visitor->as_file, as_data);
+    as_data->value_type = scope->visitor->string_type;
+    as_add_data(scope->visitor->as_file, as_data);
     as_op_T* as_op = init_as_op(ASOP_SYMBADDRREF);
     as_op->name = name;
-    as_add_op_to_function(as_function, as_op);
-    return visitor->string_type->class_type;
+    as_op->op_size = 8;
+    as_add_op_to_function(scope->as_function, as_op);
+    return scope->visitor->string_type;
 }
-data_type_T* visitor_visit_variable_definition(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
-    data_type_T* definition_type = get_data_type(visitor, scope, node->variable_definition_type);
+data_type_T* visitor_visit_variable_definition(scope_T* scope, AST_T* node) {
+    data_type_T* definition_type = scope_get_type(scope, node->variable_definition_type);
+    
     if (definition_type==(void*) 0) {
-        err_unknown_type(node->variable_definition_type);
+        err_unknown_type(node->variable_definition_type, node);
     }
-    scope_add_variable(scope, node->variable_definition_name, definition_type);
     if (node->variable_definition_value) {
-        data_type_T* value_type = visitor_visit(visitor, scope, node->variable_definition_value, as_function);
-        if (definition_type != value_type) {
-            err_conflicting_types(definition_type, value_type);
+        data_type_T* value_type = visitor_visit(scope, node->variable_definition_value, definition_type);
+        if (value_type->primitive_type == TYPE_PTR) {
+            if (value_type->ptr_type == definition_type) {
+                definition_type = value_type;
+            } else {
+                err_conflicting_ptr_types(definition_type, value_type->ptr_type, node);
+            }
+        } else if (definition_type != value_type) {
+            err_conflicting_types(definition_type, value_type, node);
         }
+        scope_add_variable(scope, node->variable_definition_name, definition_type);
         as_op_T* as_op = init_as_op(ASOP_VDEF);
         as_op->var_location = scope_get_variable_relative_location(scope, node->variable_definition_name);
-        if (as_op->var_location < 0) {
-            err_undefined_variable(node->variable_definition_name);
+        if (as_op->var_location == 0) {
+            err_undefined_variable(node->variable_definition_name, node);
         }
         as_op->op_size = definition_type->primitive_size;
-        as_add_op_to_function(as_function, as_op);
+        as_add_op_to_function(scope->as_function, as_op);
     } else {
         as_op_T* as_op = init_as_op(ASOP_VDEFNULL);
         as_op->op_size = definition_type->primitive_size;
-        as_add_op_to_function(as_function, as_op);
+        as_add_op_to_function(scope->as_function, as_op);
     }
     return definition_type;
 }
-data_type_T* visitor_visit_variable_assignment(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+data_type_T* visitor_visit_variable_assignment(scope_T* scope, AST_T* node) {
     data_type_T* variable_type = (void*) 0;
     if (node->left_hand->type == AST_VARIABLE) {
-        variable_type = visitor_visit_variable(visitor, scope, node->left_hand, as_function);
+        variable_type = visitor_visit_variable(scope, node->left_hand);
     } else if (node->left_hand->type == AST_MEMBER) {
-        variable_type = visitor_visit_member(visitor, scope, node->left_hand, as_function);
+        variable_type = visitor_visit_member(scope, node->left_hand);
     }
     if (variable_type==(void*) 0) {
-        err_undefined_variable(node->left_hand->variable_name);
+        err_undefined_variable(node->left_hand->variable_name, node);
     }
+
     as_op_T* as_op = init_as_op(ASOP_SETDEST);
-    as_add_op_to_function(as_function, as_op);
-    data_type_T* value_type = visitor_visit(visitor, scope, node->right_hand, as_function);
+    as_add_op_to_function(scope->as_function, as_op);
+    data_type_T* value_type = visitor_visit(scope, node->right_hand, variable_type);
     if (variable_type != value_type) {
-        err_conflicting_types(variable_type, value_type);
+        err_conflicting_types(variable_type, value_type, node);
     }
     as_op = init_as_op(ASOP_VMOD);
     as_op->op_size = variable_type->primitive_size;
-    as_add_op_to_function(as_function, as_op);
+    as_add_op_to_function(scope->as_function, as_op);
     as_op = init_as_op(ASOP_FREEDEST);
-    as_add_op_to_function(as_function, as_op);
+    as_add_op_to_function(scope->as_function, as_op);
     return variable_type;
 }
-data_type_T* visitor_visit_variable(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+data_type_T* visitor_visit_variable(scope_T* scope, AST_T* node) {
     data_type_T* data_type = scope_get_variable(scope, node->variable_name);
     if (data_type == (void*) 0) {
-        err_undefined_variable(node->variable_name);
+        err_undefined_variable(node->variable_name, node);
     }
-    if (data_type->primitive_type == TYPE_STATICCLASS) {
-        return data_type;
-    } else {
-        as_op_T* as_op = init_as_op(ASOP_VREF);
-        as_op->var_location = scope_get_variable_relative_location(scope, node->variable_name);
-        as_op->op_size = data_type->primitive_size;
-        as_add_op_to_function(as_function, as_op);
-        return data_type;
+    as_op_T* as_op = init_as_op(ASOP_VREF);
+    as_op->var_location = scope_get_variable_relative_location(scope, node->variable_name);
+    if (as_op->var_location == 0) {
+        err_undefined_variable(node->variable_name, node);
     }
+    as_op->op_size = data_type->primitive_size;
+    as_add_op_to_function(scope->as_function, as_op);
+    return data_type;
 }
-data_type_T* visitor_visit_member(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
-    data_type_T* parent = visitor_visit(visitor, scope, node->member_parent, as_function);
+data_type_T* visitor_visit_member(scope_T* scope, AST_T* node) {
+    data_type_T* parent = visitor_visit(scope, node->member_parent, (void*) 0);
     size_t memb_offset = 0;
-    for (size_t i = 0; i < parent->class_members_size; i++) {
-        if (utils_strcmp(node->member_name, parent->class_member_names[i])) {
-            as_op_T* as_op = init_as_op(ASOP_MEMBREF);
-            as_op->op_size = parent->class_member_types[i]->primitive_size;
-            as_op->memb_offset = memb_offset;
-            as_add_op_to_function(as_function, as_op);
-            return parent->class_member_types[i];
+    if (parent->primitive_type == TYPE_PTR) {
+        as_op_T* as_op = init_as_op(ASOP_MEMTOREG);
+        as_op->op_size = parent->primitive_size;
+        as_add_op_to_function(scope->as_function, as_op);
+        for (size_t i = 0; i < parent->ptr_type->instance_members_size; i++) {
+            if (utils_strcmp(node->member_name, parent->ptr_type->instance_member_names[i])) {
+                as_op_T* as_op = init_as_op(ASOP_MEMBREF);
+                as_op->op_size = parent->ptr_type->instance_member_types[i]->primitive_size;
+                as_op->memb_offset = memb_offset;
+                as_add_op_to_function(scope->as_function, as_op);
+                return parent->ptr_type->instance_member_types[i];
+            }
+            memb_offset += parent->ptr_type->instance_member_types[i]->primitive_size;
         }
-        memb_offset += parent->class_member_types[i]->primitive_size;
+    } else {
+        for (size_t i = 0; i < parent->instance_members_size; i++) {
+            if (utils_strcmp(node->member_name, parent->instance_member_names[i])) {
+                as_op_T* as_op = init_as_op(ASOP_LOCALMEMB);
+                as_op->op_size = parent->instance_member_types[i]->primitive_size;
+                as_op->memb_offset = memb_offset;
+                as_add_op_to_function(scope->as_function, as_op);
+                return parent->instance_member_types[i];
+            }
+            memb_offset += parent->instance_member_types[i]->primitive_size;
+        }
     }
     err_class_no_member(parent->type_name, node->member_name);
     return (void*) 0;
 }
-void visitor_visit_function_call_args(visitor_T* visitor, scope_T* scope, AST_T* node, fspec_T* fspec, as_function_T* as_function) {
+void visitor_visit_function_call_args(scope_T* scope, AST_T* node, fspec_T* fspec) {
     int argno = 0;
     if (fspec->is_class_function == 1) {
         argno = 1;
     }
     for (size_t i = 0; i < node->function_call_unnamed_size; i++) {
-        data_type_T* arg_type = visitor_visit(visitor, scope, node->function_call_unnamed_values[i], as_function);
-        if (i >= fspec->unnamed_length) {
-            err_too_many_args_in_fcall();
-        }
-        if (arg_type != fspec->unnamed_types[i]) {
-            err_conflicting_types(arg_type, fspec->unnamed_types[i]);
-        }
+        data_type_T* arg_type = visitor_visit(scope, node->function_call_unnamed_values[i], (void*) 0);
+        list_add(&fspec->unnamed_types, &fspec->unnamed_length, arg_type);
         as_op_T* as_op = init_as_op(ASOP_ARGTOREG);
         as_op->op_size = arg_type->primitive_size;
         as_op->argno = argno;
         argno++;
-        as_add_op_to_function(as_function, as_op);
+        as_add_op_to_function(scope->as_function, as_op);
     }
     for (size_t i = 0; i < node->function_call_named_size; i++) {
-        if (i >= fspec->named_length) {
-            err_too_many_args_in_fcall();
-        }
-        if (utils_strcmp(fspec->named_names[i], node->function_call_named_names[i])) {
-            err_no_named_arg(node->function_call_named_names[i]);
-        }
-        data_type_T* arg_type = visitor_visit(visitor, scope, node->function_call_named_values[i], as_function);
-        if (arg_type != fspec->named_types[i]) {
-            err_conflicting_types(arg_type, fspec->named_types[i]);
-        }
+        data_type_T* arg_type = visitor_visit(scope, node->function_call_named_values[i], (void*) 0);
+        list_add(&fspec->named_names, &fspec->named_length, node->function_call_named_names[i]);
+        fspec->named_length--;
+        list_add(&fspec->named_types, &fspec->named_length, arg_type);
         as_op_T* as_op = init_as_op(ASOP_ARGTOREG);
         as_op->op_size = arg_type->primitive_size;
         as_op->argno = argno;
         argno++;
-        as_add_op_to_function(as_function, as_op);
+        as_add_op_to_function(scope->as_function, as_op);
     }
 }
-data_type_T* visitor_visit_function_call(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
-    fspec_T* fspec = (void*) 0;
-    int argno = 0;
+data_type_T* visitor_visit_function_call(scope_T* scope, AST_T* node) {
+    fspec_T* fspec = init_fspec((void*) 0);
+    // int argno = 0;
     if (node->function_call_function->type == AST_VARIABLE) {
-        fspec = scope_get_function(visitor->global_scope, node->function_call_function->variable_name);
-        if (!fspec) {
-            if (scope->has_this) {
-                data_type_T* this_type = scope_get_variable(scope, "this");
-                for (size_t i = 0; i < this_type->class_members_size; i++) {
-                    if (utils_strcmp(node->function_call_function->variable_name, this_type->class_member_names[i])) {
-                        return this_type->class_member_types[i];
+        fspec->is_class_function = 0;
+    } else {
+        fspec->is_class_function = 1;
+    }
+    // if (node->function_call_function->type == AST_VARIABLE) {
+    //     fspec = scope_get_function(scope, node->function_call_function->variable_name);
+    //     if (!fspec) {
+    //         if (scope->has_this) {
+    //             data_type_T* this_type = scope_get_variable(scope, "this");
+    //             for (size_t i = 0; i < this_type->instance_functions_size; i++) {
+    //                 if (utils_strcmp(node->function_call_function->variable_name, this_type->instance_functions[i]->name)) {
+    //                     fspec = this_type->instance_functions[i];
+    //                 }
+    //             }
+    //         }
+    //         err_undefined_function(node->function_call_function->variable_name, node);
+    //     }
+    // } else if (node->function_call_function->type == AST_MEMBER) {
+    //     data_type_T* parent_type = visitor_visit(scope, node->function_call_function->member_parent, (void*) 0);
+    //     if (parent_type->primitive_type == TYPE_PTR) {
+    //         for (size_t i = 0; i < parent_type->ptr_type->instance_functions_size; i++) {
+    //             if (utils_strcmp(node->function_call_function->member_name, parent_type->ptr_type->instance_functions[i]->name)) {
+    //                 fspec = parent_type->ptr_type->instance_functions[i];
+    //             }
+    //         }
+    //         if (!fspec) {
+    //             err_class_no_member(parent_type->ptr_type->type_name, node->function_call_function->member_name);
+    //         }
+    //         as_op_T* as_op = init_as_op(ASOP_ARGTOREG);
+    //         as_op->op_size = parent_type->primitive_size;
+    //         as_op->argno = argno++;
+    //         as_add_op_to_function(scope->as_function, as_op);
+    //     } else {
+    //         for (size_t i = 0; i < parent_type->instance_functions_size; i++) {
+    //             if (utils_strcmp(node->function_call_function->member_name, parent_type->instance_functions[i]->name)) {
+    //                 fspec = parent_type->instance_functions[i];
+    //             }
+    //         }
+    //         if (!fspec) {
+    //             err_class_no_member(parent_type->type_name, node->function_call_function->member_name);
+    //         }
+    //     }
+        
+    //     // if (parent_type->primitive_type != TYPE_STATICCLASS) {
+    //         // as_op_T* as_op = init_as_op(ASOP_ARGTOREG);
+    //         // as_op->op_size = parent_type->primitive_size;
+    //         // as_op->argno = argno;
+    //         // argno++;
+    //         // as_add_op_to_function(scope->as_function, as_op);
+    //     // }
+    // }
+    data_type_T* parent_type = (void*) 0;
+    if (node->function_call_function->type == AST_MEMBER) {
+        parent_type = visitor_visit(scope, node->function_call_function->member_parent, (void*) 0);
+        as_op_T* as_op = init_as_op(ASOP_ARGTOREG);
+        as_op->op_size = parent_type->primitive_size;
+        as_op->argno = 0;
+        as_add_op_to_function(scope->as_function, as_op);
+    }
+    visitor_visit_function_call_args(scope, node, fspec);
+    if (node->function_call_function->type == AST_VARIABLE) {
+        for (size_t i = 0; i < scope->global->functions_size; i++) {
+            fspec_T* f = scope->global->function_specs[i];
+            if (utils_strcmp(f->name, node->function_call_function->variable_name)) {
+                if (f->unnamed_length == fspec->unnamed_length) {
+                    size_t j;
+                    for (j = 0; j < f->unnamed_length && f->unnamed_types[j] == fspec->unnamed_types[j]; j++)
+                        ;
+                    if (j == f->unnamed_length && f->named_length == fspec->named_length) {
+                        for (j = 0; j < f->named_length && f->named_types[j] == fspec->named_types[j] && utils_strcmp(f->named_names[j], fspec->named_names[j]); j++)
+                            ;
+                        if (j == f->named_length) {
+                            char* as_function_name = f->symbol_name;
+                            as_op_T* call_op = init_as_op(ASOP_FCALL);
+                            call_op->op_size = 8;
+                            call_op->name = as_function_name;
+                            as_add_op_to_function(scope->as_function, call_op);
+                            if (f->return_type->primitive_type != TYPE_NULL) {
+                                as_op_T* retval_op = init_as_op(ASOP_RETVAL);
+                                retval_op->op_size = fspec->return_type->primitive_size;
+                                as_add_op_to_function(scope->as_function, retval_op);
+                            }
+                            return f->return_type;
+                        }
                     }
                 }
             }
-            err_undefined_function(node->function_call_function->variable_name);
         }
-    } else if (node->function_call_function->type == AST_MEMBER) {
-        data_type_T* parent_type = visitor_visit(visitor, scope, node->function_call_function->member_parent, as_function);
-        for (size_t i = 0; i < parent_type->class_functions_size; i++) {
-            if (utils_strcmp(node->function_call_function->member_name, parent_type->class_function_names[i])) {
-                fspec = parent_type->class_functions[i];
+        err_undefined_function(node->function_call_function->variable_name, node);
+    } else {
+        if (parent_type->primitive_type == TYPE_PTR) {
+            for (size_t i = 0; i < parent_type->ptr_type->instance_functions_size; i++) {
+                fspec_T* f = parent_type->ptr_type->instance_functions[i];
+                if (utils_strcmp(f->name, node->function_call_function->member_name)) {
+                    if (f->unnamed_length == fspec->unnamed_length) {
+                        size_t j;
+                        for (j = 0; j < f->unnamed_length && f->unnamed_types[j] == fspec->unnamed_types[j]; j++)
+                            ;
+                        if (j == f->unnamed_length && f->named_length == fspec->named_length) {
+                            for (j = 0; j < f->named_length && f->named_types[j] == fspec->named_types[j] && utils_strcmp(f->named_names[j], fspec->named_names[j]); j++)
+                                ;
+                            if (j == f->named_length) {
+                                char* as_function_name = f->symbol_name;
+                                as_op_T* call_op = init_as_op(ASOP_FCALL);
+                                call_op->op_size = 8;
+                                call_op->name = as_function_name;
+                                as_add_op_to_function(scope->as_function, call_op);
+                                if (f->return_type->primitive_type != TYPE_NULL) {
+                                    as_op_T* retval_op = init_as_op(ASOP_RETVAL);
+                                    retval_op->op_size = fspec->return_type->primitive_size;
+                                    as_add_op_to_function(scope->as_function, retval_op);
+                                }
+                                return f->return_type;
+                            }
+                        }
+                    }
+                }
             }
-        }
-        if (!fspec) {
-            err_class_no_member(parent_type->type_name, node->function_call_function->member_name);
-        }
-        if (parent_type->primitive_type == TYPE_CLASS || parent_type->primitive_type == TYPE_INT) {
-            as_op_T* as_op = init_as_op(ASOP_ARGTOREG);
-            as_op->op_size = parent_type->primitive_size;
-            as_op->argno = argno;
-            argno++;
-            as_add_op_to_function(as_function, as_op);
+            // if (!fspec) {
+                err_class_no_member(parent_type->ptr_type->type_name, node->function_call_function->member_name);
+            // }
+            
+        } else {
+        err_not_implemented("Local class fcall\n");
+            // for (size_t i = 0; i < parent_type->instance_functions_size; i++) {
+            //     if (utils_strcmp(node->function_call_function->member_name, parent_type->instance_functions[i]->name)) {
+            //         fspec = parent_type->instance_functions[i];
+            //     }
+            // }
+            // if (!fspec) {
+            //     err_class_no_member(parent_type->type_name, node->function_call_function->member_name);
+            // }
         }
     }
-    visitor_visit_function_call_args(visitor, scope, node, fspec, as_function);
-    char* as_function_name = fspec->symbol_name;
-    as_op_T* call_op = init_as_op(ASOP_FCALL);
-    call_op->op_size = 8;
-    call_op->name = as_function_name;
-    as_add_op_to_function(as_function, call_op);
-    if (fspec->return_type->primitive_type != TYPE_NULL) {
-        as_op_T* retval_op = init_as_op(ASOP_RETVAL);
-        retval_op->op_size = fspec->return_type->primitive_size;
-        as_add_op_to_function(as_function, retval_op);
-    }
-    return fspec->return_type;
+    return (void*) 0;
 }
-data_type_T* visitor_visit_class_definition(visitor_T* visitor, scope_T* scope, AST_T* node) {
-    data_type_T* data_type = init_data_type(TYPE_STATICCLASS, node->class_name);
+data_type_T* visitor_visit_class_definition(global_T* scope, AST_T* node) {
+    data_type_T* data_type = init_data_type(TYPE_STRUCT, node->class_name);
+    data_type_T* this_type = init_data_type(TYPE_PTR, (void*) 0);
     data_type->primitive_size = 0;
-    data_type->class_type = init_data_type(TYPE_CLASS, node->class_name);
-    data_type->class_type->primitive_size = 8;
-    data_type->class_type->class_type = data_type;
-    scope_add_variable(scope, node->class_name, data_type);
+    this_type->ptr_type = data_type;
+    this_type->primitive_size = 8;
+    scope_add_typeg(scope, node->class_name, data_type);
     for (size_t i = 0; i < node->class_prototype_names_size; i++) {
-        data_type_T* prototype_type = get_data_type(visitor, scope, node->class_prototype_names[i]);
+        data_type_T* prototype_type = scope_get_typeg(scope, node->class_prototype_names[i]);
         if (prototype_type == (void*) 0) {
-            err_unknown_type(node->class_prototype_names[i]);
+            err_unknown_type(node->class_prototype_names[i], node);
         }
         list_add(&data_type->class_prototypes, &data_type->class_prototypes_size, prototype_type);
     }
     for (size_t i = 0; i < node->class_members_size; i++) {
-        if (node->class_members[i]->type == AST_VARIABLE_DEFINITION) {
-            data_type_T* member_type = get_data_type(visitor, scope, node->class_members[i]->variable_definition_type);
-            data_type_T* type_to_add;
-            if (node->class_members[i]->function_definition_is_static == 1) {
-                type_to_add = data_type;
+        AST_T* def = node->class_members[i];
+        if (def->type == AST_VARIABLE_DEFINITION) {
+            data_type_T* member_type = scope_get_typeg(scope, def->variable_definition_type);
+            if (def->function_definition_is_static == 1) {
+                list_add(&data_type->static_member_types, &data_type->static_members_size, member_type);
+                data_type->static_members_size--;
+                list_add(&data_type->static_member_names, &data_type->static_members_size, def->variable_definition_name);
             } else {
-                type_to_add = data_type->class_type;
+                list_add(&data_type->instance_member_types, &data_type->instance_members_size, member_type);
+                data_type->instance_members_size--;
+                list_add(&data_type->instance_member_names, &data_type->instance_members_size, def->variable_definition_name);
             }
-            list_add(&type_to_add->class_member_types, &type_to_add->class_members_size, member_type);
-            type_to_add->class_members_size--;
-            list_add(&type_to_add->class_member_names, &type_to_add->class_members_size, node->class_members[i]->variable_definition_name);
-        } else if (node->class_members[i]->type == AST_FUNCTION_DEFINITION) {
-            scope_T* function_scope = init_scope(scope);
+        } else if (def->type == AST_FUNCTION_DEFINITION) {
             as_function_T* as_function = init_as_function((void*) 0);
-            data_type_T* type_to_add;
-            if (node->class_members[i]->function_definition_is_static == 1) {
-                type_to_add = data_type;
-            } else {
-                type_to_add = data_type->class_type;
-                scope_add_variable(function_scope, "this", type_to_add);
+            scope_T* function_scope = init_function_scope(scope, as_function);
+            
+            if (def->function_definition_is_static == 0) {
+                scope_add_variable(function_scope, "this", this_type);
                 as_op_T* as_op = init_as_op(ASOP_ARGTOSTACK);
                 as_op->argno = 0;
-                as_op->op_size = type_to_add->primitive_size;
+                as_op->op_size = this_type->primitive_size;
                 as_op->var_location = scope_get_variable_relative_location(function_scope, "this");
-                as_function->argc++;
-                as_add_op_to_function(as_function, as_op);
+                function_scope->as_function->argc++;
+                as_add_op_to_function(function_scope->as_function, as_op);
             }
-            fspec_T* fspec = visitor_visit_function_definition(visitor, function_scope, node->class_members[i], as_function);
-            fspec->is_class_function = !node->class_members[i]->function_definition_is_static;
-            function_scope->has_this = !node->class_members[i]->function_definition_is_static;
-            fspec->symbol_name = realloc(fspec->symbol_name, (prefix_len + 3 + strlen(data_type->type_name) + 3 + strlen(node->class_members[i]->function_definition_name)) * sizeof(char));
-            as_function->name = fspec->symbol_name;
-            sprintf(fspec->symbol_name, prefix "%lu%s%lu%s", strlen(data_type->type_name), data_type->type_name, strlen(node->class_members[i]->function_definition_name), node->class_members[i]->function_definition_name);
+            fspec_T* fspec = visitor_visit_function_definition(function_scope, def);
+            fspec->name = def->function_definition_name;
+            fspec->is_class_function = !def->function_definition_is_static;
+            function_scope->has_this = !def->function_definition_is_static;
+            fspec->symbol_name = realloc(fspec->symbol_name, (prefix_len + 3 + strlen(data_type->type_name) + 3 + strlen(def->function_definition_name)) * sizeof(char));
+            function_scope->as_function->name = fspec->symbol_name;
+            sprintf(fspec->symbol_name, prefix "%lu%s%lu%s", strlen(data_type->type_name), data_type->type_name, strlen(def->function_definition_name), def->function_definition_name);
             for (size_t j = 0; j < fspec->unnamed_length; j++) {
-                char* type_name = visitor_data_type_to_arg_name(visitor, scope, fspec->unnamed_types[j]);
+                char* type_name = visitor_data_type_to_arg_name(function_scope, fspec->unnamed_types[j]);
                 fspec->symbol_name = realloc(fspec->symbol_name, (strlen(fspec->symbol_name) + strlen(type_name) + 2) * sizeof(char));
                 sprintf(fspec->symbol_name, "%s_%s", fspec->symbol_name, type_name);
             }
             for (size_t j = 0; j < fspec->named_length; j++) {
-                char* type_name = visitor_data_type_to_arg_name(visitor, scope, fspec->named_types[j]);
+                char* type_name = visitor_data_type_to_arg_name(function_scope, fspec->named_types[j]);
                 fspec->symbol_name = realloc(fspec->symbol_name, (strlen(fspec->symbol_name) + 4 + strlen(fspec->named_names[j]) + strlen(type_name)) * sizeof(char));
                 sprintf(fspec->symbol_name, "%s%lu%s%s", fspec->symbol_name, strlen(fspec->named_names[j]), fspec->named_names[j], type_name);
             }
-            char* return_type_name = visitor_data_type_to_arg_name(visitor, scope, fspec->return_type);
+            char* return_type_name = visitor_data_type_to_arg_name(function_scope, fspec->return_type);
             fspec->symbol_name = realloc(fspec->symbol_name, (strlen(fspec->symbol_name) + strlen(return_type_name) + 1) * sizeof(char));
             sprintf(fspec->symbol_name, "%s%s", fspec->symbol_name, return_type_name);
+            if (def->function_definition_is_static == 1) {
+                list_add(&data_type->static_functions, &data_type->static_functions_size, fspec);
+            } else {
+                list_add(&data_type->instance_functions, &data_type->instance_functions_size, fspec);
+            }
             
-            list_add(&type_to_add->class_functions, &type_to_add->class_functions_size, fspec);
-            type_to_add->class_functions_size--;
-            list_add(&type_to_add->class_function_names, &type_to_add->class_functions_size, node->class_members[i]->function_definition_name);
-            if (utils_strcmp(node->class_members[i]->function_definition_name, node->class_name)) {
-                scope_add_function(scope, node->class_name, fspec);
+            if (utils_strcmp(def->function_definition_name, node->class_name)) {
+                scope_add_functiong(scope, fspec);
             }
         }
     }
-    if (data_type->class_type->primitive_size == 0) {
-        err_empty_class(data_type->class_type->type_name);
+    if (data_type->instance_members_size == 0) {
+        err_empty_class(data_type->type_name);
     }
-    scope_add_variable(scope, node->class_name, data_type);
+    scope_add_typeg(scope, node->class_name, data_type);
     return data_type;
 }
-data_type_T* visitor_visit_new(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
+data_type_T* visitor_visit_new(scope_T* scope, AST_T* node) {
     if (node->new_function_call->type != AST_FUNCTION_CALL) {
         err_unexpected_node(node);
     }
     as_op_T* as_op = init_as_op(ASOP_NEW);
     as_op->op_size = 8;
-    as_add_op_to_function(as_function, as_op);
-    data_type_T* new_type = (void*) 0;
+    as_add_op_to_function(scope->as_function, as_op);
+    data_type_T* new_type = init_data_type(TYPE_PTR, (void*) 0);
+    new_type->primitive_size = 8;
     if (node->new_function_call->function_call_function->type == AST_VARIABLE) {
-        new_type = scope_get_variable(scope, node->new_function_call->function_call_function->variable_name)->class_type;
-        as_op->data_type = new_type;
+        new_type->ptr_type = scope_get_type(scope, node->new_function_call->function_call_function->variable_name);
+        as_op->data_type = new_type->ptr_type;
     } else if (node->new_function_call->function_call_function->type == AST_MEMBER) {
         err_not_implemented("member classes");
-        new_type = visitor_visit_member(visitor, scope, node->new_function_call->function_call_function, as_function)->class_type;
+        new_type = visitor_visit_member(scope, node->new_function_call->function_call_function);
         as_op->data_type = new_type;
     } else {
         err_unexpected_node(node->new_function_call->function_call_function);
     }
     return new_type;
 }
-data_type_T* visitor_visit_if(visitor_T* visitor, scope_T* scope, AST_T* node, as_function_T* as_function) {
-    data_type_T* condition = visitor_visit(visitor, scope, node->if_condition, as_function);
-    if (condition != visitor->bool_type) {
-        err_conflicting_types(condition, visitor->bool_type);
+data_type_T* visitor_visit_if(scope_T* scope, AST_T* node) {
+    data_type_T* condition = visitor_visit(scope, node->if_condition, scope->visitor->bool_type);
+    if (condition != scope->visitor->bool_type) {
+        err_conflicting_types(condition, scope->visitor->bool_type, node->if_condition);
     }
     as_op_T* start_op = init_as_op(ASOP_OPENIF);
-    as_add_op_to_function(as_function, start_op);
+    as_add_op_to_function(scope->as_function, start_op);
 
     scope_T* if_scope = init_scope(scope);
-    data_type_T* return_type = visitor_visit_compound(visitor, if_scope, node->if_body, scope->return_type, as_function);
+    data_type_T* return_type = visitor_visit_compound(if_scope, node->if_body, scope->return_type);
     as_op_T* close_op = init_as_op(ASOP_CLOSEIF);
     start_op->bb_ptr = close_op;
     AST_T* last_statement = node->next_statement;
@@ -550,10 +697,10 @@ data_type_T* visitor_visit_if(visitor_T* visitor, scope_T* scope, AST_T* node, a
             last_bb_opener->bb_ptr = as_op;
             as_op->bb_no = -1;
             as_op->bb_ptr = close_op;
-            as_add_op_to_function(as_function, as_op);
-            data_type_T* else_return_type = visitor_visit_compound(visitor, else_scope, last_statement->else_body, scope->return_type, as_function);
-            if (else_return_type == visitor->null_type) {
-                return_type = visitor->null_type;
+            as_add_op_to_function(scope->as_function, as_op);
+            data_type_T* else_return_type = visitor_visit_compound(else_scope, last_statement->else_body, scope->return_type);
+            if (else_return_type == scope->visitor->null_type) {
+                return_type = scope->visitor->null_type;
             }
             // last_bb_opener = as_op;
             break;
@@ -562,17 +709,17 @@ data_type_T* visitor_visit_if(visitor_T* visitor, scope_T* scope, AST_T* node, a
             as_op_T* else_op = init_as_op(ASOP_ELSE);
             last_bb_opener->bb_ptr = else_op;
             else_op->bb_no = -1;
-            as_add_op_to_function(as_function, else_op);
-            condition = visitor_visit(visitor, scope, last_statement->elif_condition, as_function);
-            if (condition != visitor->bool_type) {
-                err_conflicting_types(condition, visitor->bool_type);
+            as_add_op_to_function(scope->as_function, else_op);
+            condition = visitor_visit(scope, last_statement->elif_condition, scope->visitor->bool_type);
+            if (condition != scope->visitor->bool_type) {
+                err_conflicting_types(condition, scope->visitor->bool_type, last_statement->elif_body);
             }
             as_op_T* as_op = init_as_op(ASOP_OPENIF);
             as_op->bb_ptr = close_op;
-            as_add_op_to_function(as_function, as_op);
-            data_type_T* elif_return_type = visitor_visit_compound(visitor, elif_scope, last_statement->elif_body, scope->return_type, as_function);
-            if (elif_return_type == visitor->null_type) {
-                return_type = visitor->null_type;
+            as_add_op_to_function(scope->as_function, as_op);
+            data_type_T* elif_return_type = visitor_visit_compound(elif_scope, last_statement->elif_body, scope->return_type);
+            if (elif_return_type == scope->visitor->null_type) {
+                return_type = scope->visitor->null_type;
             }
             as_op->bb_no = -1;
             else_op->bb_ptr = close_op;
@@ -588,6 +735,6 @@ data_type_T* visitor_visit_if(visitor_T* visitor, scope_T* scope, AST_T* node, a
     // } else {
     //     last_bb_opener->bb_ptr = close_op;
     // }
-    as_add_op_to_function(as_function, close_op);
+    as_add_op_to_function(scope->as_function, close_op);
     return return_type;
 }
