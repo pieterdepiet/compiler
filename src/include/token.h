@@ -48,5 +48,5 @@ typedef struct TOKEN_STRUCT {
 
 token_T* init_token(int type, char* value);
 
-char* token_type_string(int type);
+char* token_type_string(enum token_type type);
 #endif

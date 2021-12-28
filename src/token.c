@@ -10,7 +10,7 @@ token_T* init_token(int type, char* value) {
     return token;
 }
 
-char* token_type_string(int type) {
+char* token_type_string(enum token_type type) {
     switch (type) {
         case TOKEN_ID: return "id"; break;
         case TOKEN_EQUALS: return "equals"; break;
@@ -51,6 +51,6 @@ char* token_type_string(int type) {
         case TOKEN_EOF: return "end of file"; break;
         case TOKEN_COMMENT: return "comment"; break;
         case TOKEN_UNDERSCORE: return "underscore"; break;
-        default: return ""; break;
+        case TOKEN_RIGHTARROW: return "rightarrow"; break;
     }
 }
