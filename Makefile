@@ -1,6 +1,7 @@
 exec = compiler.out
 sources = $(wildcard src/*.c)
 objects = $(sources:.c=.o)
+headers = $(wildcard src/include/*.h)
 flags = -Wall -g
 lib = stdlib/lib.s
 makefile = Makefile
@@ -9,12 +10,12 @@ $(exec): $(objects) $(lib) $(makefile)
 	make lib
 	gcc $(objects) $(flags) -o $(exec)
 
-%.o: %.c include/%.h $(makefile)
+%.o: %.c $(headers) $(makefile)
 	gcc -c $(flags) $< -o $@
 
 as: $(sources:.c=.s) $(makefile)
 
-%.s: %.c include/%.h $(makefile)
+%.s: %.c $(headers) $(makefile)
 	gcc -S -g $(flags) $< -o $@
 
 aslink:
