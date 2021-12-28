@@ -1,26 +1,43 @@
 #ifndef DATA_TYPE_H
 #define DATA_TYPE_H
 #include <sys/types.h>
+
+
 typedef struct DATA_TYPE_STRUCT {
     enum {
         TYPE_NULL,
         TYPE_INT,
+        TYPE_UINT,
+        TYPE_CHAR,
+        TYPE_UCHAR,
+        TYPE_LONG,
+        TYPE_ULONG,
         TYPE_BOOL,
         TYPE_STRING,
-        TYPE_CLASS,
-        TYPE_STATICCLASS
+        TYPE_STRUCT,
+        TYPE_PTR
     } primitive_type;
-    char** class_member_names;
-    struct DATA_TYPE_STRUCT** class_member_types;    
-    size_t class_members_size;
     struct DATA_TYPE_STRUCT** class_prototypes;
     size_t class_prototypes_size;
-    struct FUNCTION_SPECIFICATIONS_STRUCT** class_functions;
-    char** class_function_names;
-    size_t class_functions_size;
+
+    // Instance
+    char** instance_member_names;
+    struct DATA_TYPE_STRUCT** instance_member_types;    
+    size_t instance_members_size;
+    struct FUNCTION_SPECIFICATIONS_STRUCT** instance_functions;
+    size_t instance_functions_size;
+
+    // Static
+    char** static_member_names;
+    struct DATA_TYPE_STRUCT** static_member_types;
+    size_t static_members_size;
+    struct FUNCTION_SPECIFICATIONS_STRUCT** static_functions;
+    size_t static_functions_size;
+
+    struct DATA_TYPE_STRUCT* ptr_type;
+    
     char* type_name;
     size_t primitive_size;
-    struct DATA_TYPE_STRUCT* class_type;
 } data_type_T;
 typedef struct FUNCTION_SPECIFICATIONS_STRUCT {
     data_type_T* return_type;
@@ -30,6 +47,7 @@ typedef struct FUNCTION_SPECIFICATIONS_STRUCT {
     data_type_T** unnamed_types;
     size_t unnamed_length;
     char* symbol_name;
+    char* name;
     int is_class_function;
 } fspec_T;
 
