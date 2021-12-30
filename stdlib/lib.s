@@ -49,19 +49,6 @@ _C3Int3add:
     movl %edi, %eax
     addl %esi, %eax
     ret
-.globl _allocnew
-_allocnew:
-    push %rbp
-    movq %rsp, %rbp
-    subq $16, %rsp
-    callq _malloc
-    movq %rax, -8(%rbp)
-    movq %rax, %rdi
-    # callq _printp
-    movq -8(%rbp), %rax
-    addq $16, %rsp
-    pop %rbp
-    ret
 _main:
     push %rbp
     movq %rsp, %rbp

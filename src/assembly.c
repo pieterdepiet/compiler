@@ -15,9 +15,9 @@ int math_registers[] = {REG_IMM, REG_CX, REG_DX, REG_SI, REG_DI};
 
 const char* as_data_section_start = ".data\n";
 const char* as_text_section_start = ".text\n.globl _start\n";
-const char* return_format =   "  addq $%lu, %%rsp\n"
-                        "  pop %%rbp\n"
-                        "  ret\n";
+const char* return_format = "  addq $%lu, %%rsp\n"
+                            "  pop %%rbp\n"
+                            "  ret\n";
 const size_t return_format_min_length = 11 + 15 + size_str_max_length + 6 + 1;
 const char* vdef_format =     "  mov%c %s, -%lu(%%rbp)\n";
 const size_t vdef_format_min_length = 17 + size_str_max_length + 1;
@@ -35,14 +35,15 @@ const char* toreg_format =    "  mov%c %s, %s\n";
 const size_t toreg_format_min_length = 10 + reg_length + 1;
 const char* binop_format =    "  %s%c %s, %s\n";
 const size_t binop_format_min_length = 7 + reg_length + 1;
-const char* retnull_format =  "  xorl %%eax, %%eax\n"
-                        "  addq $%lu, %%rsp\n"
-                        "  pop %%rbp\n"
-                        "  ret\n";
+const char* retnull_format =    "  xorl %%eax, %%eax\n"
+                                "  addq $%lu, %%rsp\n"
+                                "  pop %%rbp\n"
+                                "  ret\n";
 const size_t retnull_format_length = 18 + 15 + size_str_max_length + 11 + 6 + 1;
-const char* new_format =  "  movq $%lu, %%rdi\n"
-                    "  callq _allocnew\n";
-const size_t new_format_length = 8 + size_str_max_length + 7 + 18 + 1;
+const char* new_format =    "  movl $1, %%edi\n"
+                            "  movq $%lu, %%rsi\n"
+                            "  callq _calloc\n";
+const size_t new_format_length = 16 + 8 + size_str_max_length + 7 + 18 + 1;
 const char* memtoreg_format = "  mov%c -%lu(%%rbp), %s\n";
 const size_t memtoreg_format_min_length = 8 + size_str_max_length + 9 + 1;
 const char* membref_format =  "  movq -%lu(%%rbp), %%rax\n";
@@ -56,7 +57,7 @@ const size_t lea_format_min_length = 7 + 9 + 1;
 const char* openif_format =   "  j%s LBB%lu_%lu\n";
 const size_t openif_format_min_length = 9 + 2 * size_str_max_length + 1;
 const char* else_format = "  jmp LBB%lu_%lu\n"
-                    "LBB%lu_%lu:\n";
+                        "LBB%lu_%lu:\n";
 const size_t else_format_min_length = 11 + 2 * size_str_max_length + 6 + 2 * size_str_max_length + 1;
 const char* closeif_format =  "LBB%lu_%lu:\n";
 const size_t closeif_format_length = 6 + 2 * size_str_max_length + 1;
