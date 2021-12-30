@@ -11,6 +11,9 @@ class Greeter {
     fun greet(_ str : String) {
         prints(str);
     }
+    fun getGreetCount() : Int {
+        return this.greetCount;
+    }
 }
 
 fun start() {
@@ -18,5 +21,7 @@ fun start() {
     var a : String = "Hello world!";
     g.setGreet(to: a);
     g.greet();
+    g.greet();
+    print(g.getGreetCount());
     g.greet("Bye!");
 }
