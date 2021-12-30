@@ -520,7 +520,7 @@ data_type_T* visitor_visit_function_call(scope_T* scope, AST_T* node) {
                             as_add_op_to_function(scope->as_function, call_op);
                             if (f->return_type->primitive_type != TYPE_NULL) {
                                 as_op_T* retval_op = init_as_op(ASOP_RETVAL);
-                                retval_op->op_size = fspec->return_type->primitive_size;
+                                retval_op->op_size = f->return_type->primitive_size;
                                 as_add_op_to_function(scope->as_function, retval_op);
                             }
                             return f->return_type;
@@ -550,7 +550,7 @@ data_type_T* visitor_visit_function_call(scope_T* scope, AST_T* node) {
                                 as_add_op_to_function(scope->as_function, call_op);
                                 if (f->return_type->primitive_type != TYPE_NULL) {
                                     as_op_T* retval_op = init_as_op(ASOP_RETVAL);
-                                    retval_op->op_size = fspec->return_type->primitive_size;
+                                    retval_op->op_size = f->return_type->primitive_size;
                                     as_add_op_to_function(scope->as_function, retval_op);
                                 }
                                 return f->return_type;
