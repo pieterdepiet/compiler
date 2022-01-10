@@ -8,8 +8,9 @@ Experimental project to learn assembly and other low-level stuff.
 - Function definitions with return values and named arguments
 - Function calls
 - Integer addition/substraction
+- If, else if, else and less than comparison
 ## In progress
-- Add import
+- Implement all comparisons
 ## TODO:
 - [ ] Add import
 - [x] Implement classes
@@ -18,6 +19,10 @@ Experimental project to learn assembly and other low-level stuff.
     - [ ] Implement local structures
 - [x] Add strings
     - [ ] Finish strings
+- [x] Add conditions
+    - [x] If, else if, else
+    - [x] Less than
+    - [ ] All comparisons
 - [ ] Add arrays
 - [ ] More math
 - [ ] More number types
