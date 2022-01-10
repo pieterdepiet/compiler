@@ -19,9 +19,9 @@ const char* return_format = "  addq $%lu, %%rsp\n"
                             "  pop %%rbp\n"
                             "  ret\n";
 const size_t return_format_min_length = 11 + 15 + size_str_max_length + 6 + 1;
-const char* vdef_format =     "  mov%c %s, -%lu(%%rbp)\n";
+const char* vdef_format =   "  mov%c %s, -%lu(%%rbp)\n";
 const size_t vdef_format_min_length = 17 + size_str_max_length + 1;
-const char* vref_format =     "-%lu(%%rbp)";
+const char* vref_format =   "-%lu(%%rbp)";
 const size_t vref_format_length = 7 + size_str_max_length + 1;
 const char* vmod_format =     "  mov%c %s, %s\n";
 const size_t vmod_format_min_length = 17 + size_str_max_length + 1;
@@ -61,9 +61,9 @@ const char* else_format = "  jmp LBB%lu_%lu\n"
 const size_t else_format_min_length = 11 + 2 * size_str_max_length + 6 + 2 * size_str_max_length + 1;
 const char* closeif_format =  "LBB%lu_%lu:\n";
 const size_t closeif_format_length = 6 + 2 * size_str_max_length + 1;
-const char* lea_memb_format = "leaq -%lu(%%rax), %s\n";
+const char* lea_memb_format = "  leaq -%lu(%%rax), %s\n";
 const size_t lea_memb_format_len = 6 + size_str_max_length + 8 + 1;
-const char* lea_mem_format =  "leaq -%lu(%%rbp), %s\n";
+const char* lea_mem_format =  "  leaq -%lu(%%rbp), %s\n";
 const size_t lea_mem_format_len = 6 + size_str_max_length + 8 + 1;
 
 int arg_registers[] = {REG_DI, REG_SI, REG_DX, REG_CX};
@@ -388,6 +388,8 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
             printf("Error: No bb opener in else\n");
             exit(1);
         }
+    } else if (op->type == ASOP_VDEFNULL) {
+        
     } else {
         char* src;
         if (as->last_register == REG_SYMBADDR && op->type == ASOP_ARGTOREG) {
@@ -416,7 +418,7 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         } else if (as->last_register == REG_MEMADDR && op->type == ASOP_ARGTOREG) {
             char* reg = data_type_size_register(arg_registers[op->argno], op->op_size);
             char* temp = calloc(1, lea_mem_format_len + strlen(reg));
-            sprintf(temp, lea_mem_format, as->memb_offset, reg);
+            sprintf(temp, lea_mem_format, as->mem_loc, reg);
             utils_strcat(as_text, temp);
         } else if (as->last_register == REG_MEMBADDR && op->type == ASOP_ARGTOREG) {
             char* reg = data_type_size_register(arg_registers[op->argno], op->op_size);
