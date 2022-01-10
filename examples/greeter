@@ -19,9 +19,12 @@ class Greeter {
 fun start() {
     var g : Greeter = new Greeter();
     var a : String = "Hello world!";
+    var local : Greeter;
+    local.setGreet(to: "Local greet");
+    local.greetCount = 5;
     g.setGreet(to: a);
     g.greet();
-    g.greet();
-    print(g.getGreetCount());
-    g.greet("Bye!");
+    local.greet();
+    print(local.getGreetCount());
+    local.greet("Bye!");
 }
