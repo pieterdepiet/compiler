@@ -32,3 +32,5 @@ clean:
 	-rm *.out
 	-rm stdlib/*.o
 	-rm src/*.o
+	-rm program.o
+	-rm program.s
