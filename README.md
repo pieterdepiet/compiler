@@ -8,7 +8,8 @@ Experimental project to learn assembly and other low-level stuff.
 - Function definitions with return values and named arguments
 - Function calls
 - Integer addition/substraction
-- If, else if, else and less than comparison
+- If, else if, else and comparisons
+- Limited object orientation with function calls on structures
 ## In progress
 - Implement all comparisons
 ## TODO:
@@ -16,13 +17,14 @@ Experimental project to learn assembly and other low-level stuff.
 - [x] Implement classes
     - [ ] Implement public/private
     - [ ] Implement static class members
-    - [ ] Implement local structures
+    - [x] Implement structure pointers
+    - [x] Implement local structures
 - [x] Add strings
     - [ ] Finish strings
 - [x] Add conditions
     - [x] If, else if, else
     - [x] Less than
-    - [ ] All comparisons
+    - [x] All comparisons
 - [ ] Add arrays
 - [ ] More math
 - [ ] More number types
