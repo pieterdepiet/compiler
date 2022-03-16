@@ -22,7 +22,7 @@ typedef struct DATA_TYPE_STRUCT {
 
     // Instance
     char** instance_member_names;
-    struct DATA_TYPE_STRUCT** instance_member_types;    
+    struct DATA_TYPE_STRUCT** instance_member_types;
     size_t instance_members_size;
     struct FUNCTION_SPECIFICATIONS_STRUCT** instance_functions;
     size_t instance_functions_size;
@@ -38,6 +38,10 @@ typedef struct DATA_TYPE_STRUCT {
     
     char* type_name;
     size_t primitive_size;
+    struct {
+        unsigned char is_private : 1;
+        unsigned char is_this : 1;
+    };
 } data_type_T;
 typedef struct FUNCTION_SPECIFICATIONS_STRUCT {
     data_type_T* return_type;
@@ -48,12 +52,19 @@ typedef struct FUNCTION_SPECIFICATIONS_STRUCT {
     size_t unnamed_length;
     char* symbol_name;
     char* name;
-    int is_class_function;
+    struct {
+        unsigned char is_class_function : 1;
+        unsigned char is_private : 1;
+    };
 } fspec_T;
 
 fspec_T* init_fspec(data_type_T* return_type);
 data_type_T* init_data_type(int primitive_type, char* type_name);
 
+data_type_T* init_pointer_to(data_type_T* data_type);
+
 void fspec_add_unnamed_arg(fspec_T* fspec, data_type_T* arg_type);
 void fspec_add_named_arg(fspec_T* fspec, char* name, data_type_T* arg_type);
+
+int fspec_check_equals(fspec_T* fspec1, fspec_T* fspec2);
 #endif
