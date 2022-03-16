@@ -4,23 +4,23 @@
 #define ErrorStart "\e[0;31mError:\e[0m "
 
 void err_unexpected_token(parser_T* parser, int expected) {
-    printf(ErrorStart "Unexpected token '%s' with type %s; Expected %s [%lu:%lu]\n", parser->current_token->value, token_type_string(parser->current_token->type), token_type_string(expected), parser->lexer->lineno, parser->lexer->charno);
+    printf(ErrorStart "Unexpected token '%s' with type %s; Expected %s [%zu:%zu]\n", parser->current_token->value, token_type_string(parser->current_token->type), token_type_string(expected), parser->lexer->lineno, parser->lexer->charno);
     exit(1);
 }
 void err_unexpected_node(AST_T* node) {
-    printf(ErrorStart "unexpected node with type %d [%lu:%lu]\n", node->type, node->lineno, node->charno);
+    printf(ErrorStart "unexpected node with type %s [%zu:%zu]\n", ast_node_type_string(node), node->lineno, node->charno);
     exit(1);
 }
 void err_unknown_type(char* type_name, AST_T* node) {
-    printf(ErrorStart "type %s not defined [%lu:%lu]\n", type_name, node->lineno, node->charno);
+    printf(ErrorStart "type %s not defined [%zu:%zu]\n", type_name, node->lineno, node->charno);
     exit(1);
 }
 void err_undefined_variable(char* variable_name, AST_T* node) {
-    printf(ErrorStart "variable %s is not defined [%lu:%lu]\n", variable_name, node->lineno, node->charno);
+    printf(ErrorStart "variable %s is not defined [%zu:%zu]\n", variable_name, node->lineno, node->charno);
     exit(1);
 }
 void err_undefined_function(char* function_name, AST_T* node) {
-    printf(ErrorStart "function %s is not defined [%lu:%lu]\n", function_name, node->lineno, node->charno);
+    printf(ErrorStart "function %s is not defined [%zu:%zu]\n", function_name, node->lineno, node->charno);
     exit(1);
 }
 char* get_type_info(data_type_T* type) {
@@ -33,11 +33,11 @@ char* get_type_info(data_type_T* type) {
     }
 }
 void err_conflicting_types(data_type_T* type1, data_type_T* type2, AST_T* node) {
-    printf(ErrorStart "conflicting types %s%s and %s%s [%lu:%lu]\n", get_type_info(type1), type1->type_name, get_type_info(type2), type2->type_name, node->lineno, node->charno);
+    printf(ErrorStart "conflicting types %s%s and %s%s [%zu:%zu]\n", get_type_info(type1), type1->type_name, get_type_info(type2), type2->type_name, node->lineno, node->charno);
     exit(1);
 }
 void err_conflicting_ptr_types(data_type_T* type1, data_type_T* type2, AST_T* node) {
-    printf(ErrorStart "conflicting pointer types %s and %s [%lu:%lu]\n", type1->type_name, type2->type_name, node->lineno, node->charno);
+    printf(ErrorStart "conflicting pointer types %s and %s [%zu:%zu]\n", type1->type_name, type2->type_name, node->lineno, node->charno);
     exit(1);
 }
 void err_undefined_member(char* parent_name, char* member_name) {
@@ -73,10 +73,6 @@ void err_unknown_option(char* option) {
     printf(ErrorStart "option %s is unknown. It will be ignored\n", option);
     exit(1);
 }
-void err_node_not_convertable_to_data_type(AST_T* node, data_type_T* data_type) {
-    printf(ErrorStart "Node \n");
-    exit(1);
-}
 void err_no_info(void) {
     printf(ErrorStart "Something went wrong, but no information specified\n");
     exit(1);
@@ -105,8 +101,8 @@ void err_not_implemented(char* feature) {
     printf(ErrorStart "%s is not implemented yet\n", feature);
     exit(1);
 }
-void err_class_no_member(char* class, char* member) {
-    printf(ErrorStart "class %s has no member %s\n", class, member);
+void err_class_no_member(char* class, char* member, AST_T* node) {
+    printf(ErrorStart "class %s has no member %s [%zu:%zu]\n", class, member, node->lineno, node->charno);
     exit(1);
 }
 void err_empty_class(char* class) {
@@ -119,5 +115,9 @@ void err_pointer_is_null(char* pointer_description) {
 }
 void err_overflow() {
     printf(ErrorStart "number overflow\n");
+    exit(1);
+}
+void err_duplicate_function(AST_T* node) {
+    printf(ErrorStart "duplicate function [%zu:%zu]\n", node->lineno, node->charno);
     exit(1);
 }

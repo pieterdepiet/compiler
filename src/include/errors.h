@@ -25,9 +25,9 @@ void err_too_many_args_in_fcall(void);
 void err_reg_full();
 void err_no_return_value(data_type_T* return_type);
 void err_not_implemented(char* feature);
-void err_class_no_member(char* class, char* member);
+void err_class_no_member(char* class, char* member, AST_T* node);
 void err_empty_class(char* class);
 void err_pointer_is_null(char* pointer_description);
 void err_overflow();
-
+void err_duplicate_function(AST_T* node);
 #endif
