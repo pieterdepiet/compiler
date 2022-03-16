@@ -1,30 +1,52 @@
 class Greeter {
-    var greetCount : Int;
+    public var greetCount : Int;
     var greetstring : String;
     fun setGreet(to str : String) {
         this.greetstring = str;
     }
-    fun greet() {
-        prints(this.greetstring);
-        this.greetCount += 1;
-    }
-    fun greet(_ str : String) {
+    private fun greet(_ str : String) {
         prints(str);
+    }
+    fun greet() {
+        this.greet(this.greetstring);
+        this.greetCount += 1;
     }
     fun getGreetCount() : Int {
         return this.greetCount;
     }
+    constructor(_ str : String) {
+        this.greetCount = 0;
+        this.greetstring = str;
+    }
+    constructor() {
+        prints("No args, still construct!");
+    }
 }
 
 fun start() {
-    var g : Greeter = new Greeter();
-    var a : String = "Hello world!";
-    var local : Greeter;
-    local.setGreet(to: "Local greet");
+    // Pointer to structure in memory
+    var g : new Greeter();
+
+    // String variable
+    var s : String = "Hello world!";
+
+    // Structure on local stack
+    var local : Greeter("Local greet");
+
+    // Possible, member is public
     local.greetCount = 5;
-    g.setGreet(to: a);
+
+    // Not possible, member is private
+    // g.greetstring = s;
+
+    // Possible, function is public
+    g.setGreet(to: s);
+
     g.greet();
     local.greet();
+
     print(local.getGreetCount());
-    local.greet("Bye!");
+    
+    // Not possible
+    // g.greet(s);
 }
