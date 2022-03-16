@@ -44,6 +44,15 @@ void fspec_add_named_arg(fspec_T* fspec, char* name, data_type_T* arg_type) {
     fspec->named_length--;
     list_add(&fspec->named_names, &fspec->named_length, name);
 }
+int data_type_equals(data_type_T* type1, data_type_T* type2) {
+    if (type1->primitive_type == TYPE_PTR) {
+        type1 = type1->ptr_type;
+    }
+    if (type2->primitive_type == TYPE_PTR) {
+        type2 = type2->ptr_type;
+    }
+    return type1 == type2;
+}
 int data_type_prototype_contains(data_type_T* type1, data_type_T* type2) {
     for (size_t i = 0; i < type1->class_prototypes_size; i++) {
         data_type_T* proto1 = type1->class_prototypes[i];
