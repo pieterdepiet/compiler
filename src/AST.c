@@ -166,5 +166,6 @@ char* ast_node_type_string(AST_T* node) {
         case AST_HEADER: return "header"; break;
         case AST_MEMBER: return "member"; break;
         case AST_NEW: return "new"; break;
+        case AST_CONSTRUCTOR: return "constructor"; break;
     }
 }
