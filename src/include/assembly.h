@@ -40,7 +40,10 @@ typedef struct ASSEMBLY_OPERATION_STRUCT {
         ASOP_UNOP,
         ASOP_LEA,
         ASOP_MEMTOREG,
-        ASOP_LOCALMEMB
+        ASOP_LOCALMEMB,
+        ASOP_PUSHREG,
+        ASOP_POPREG,
+        ASOP_NOP
     } type;
     char* name;
     size_t var_location;
@@ -63,6 +66,7 @@ typedef struct ASSEMBLY_FUNCTION_STRUCT {
     char* last_imm_str;
     size_t mem_loc;
     int memb_offset;
+    size_t visitor_max_extra_stack;
     enum registers {
         REG_VOID,
         REG_IMM,
