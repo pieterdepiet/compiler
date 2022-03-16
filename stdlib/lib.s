@@ -29,9 +29,7 @@ _printp:
 _prints:
     push %rbp
     movq %rsp, %rbp
-    movq %rdi, %rsi
-    leaq _prints_format(%rip), %rdi
-    callq _printf
+    callq _puts
     pop %rbp
     ret
 .globl _C3Int5print
