@@ -14,10 +14,8 @@ typedef struct VISITOR_STRUCT {
 } visitor_T;
 
 visitor_T* init_visitor(as_file_T* as);
-char* visitor_data_type_to_arg_name(scope_T* scope, data_type_T* data_type);
 data_type_T* visitor_visit(scope_T* scope, AST_T* node, data_type_T* suggestion);
 data_type_T* visitor_visit_global(global_T* scope, AST_T* root);
-as_value_U visitor_visit_data(scope_T* scope, data_type_T* data_type, AST_T* node);
 data_type_T* visitor_visit_binop(scope_T* scope, AST_T* node, data_type_T* hint);
 data_type_T* visitor_visit_unop(scope_T* scope, AST_T* node, data_type_T* hint);
 data_type_T* visitor_visit_int_as(scope_T* scope, AST_T* node, data_type_T* hint);
