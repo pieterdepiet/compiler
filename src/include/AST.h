@@ -51,131 +51,172 @@ typedef struct AST_STRUCT {
         AST_NEW, // 22
         AST_CONSTRUCTOR // 23
     } type;
-
-    // AST_VARIABLE_DEFINITION
-    char* variable_definition_type;
-    char* variable_definition_name;
-    struct AST_STRUCT* variable_definition_value;
-    int variable_definition_is_static;
-    // AST_VARIABLE
-    char* variable_name;
-    // AST_FUNCTION_CALL
-    struct AST_STRUCT* function_call_function;
-    char** function_call_named_names;
-    struct AST_STRUCT** function_call_named_values;
-    size_t function_call_named_size;
-    struct AST_STRUCT** function_call_unnamed_values;
-    size_t function_call_unnamed_size;
-    // AST_FUNCTION_DEFINITION
-    char* function_definition_name;
-    struct AST_STRUCT* function_definition_body;
-    ast_arglist_T* function_definition_args;
-    char* function_definition_return_type;
-    int function_definition_is_static;
-
-    // STRING
-    char* string_value;
-    // INT
-    int int_value;
-    // FLOAT
-    float float_value;
-    // DOUBLE
-    double double_value;
-    // BOOL
-    int bool_value;
-
-    // AST_COMPOUND
-    struct AST_STRUCT** compound_value;
-    size_t compound_size;
-    // AST_HEADER_LIST
-     enum {
-        HEADER_NORMAL,
-        HEADER_C,
-        HEADER_CPP
-    } headers_type;
-    struct AST_STRUCT** headers_value;
-    size_t headers_size;
-
-    // AST_PLUS, AST_MINUS, AST_TIMES, AST_SLASH, AST_EQ, AST_NEQ, AST_GRT, AST_LET, AST_GREQ, AST_LEEQ, AST_AND, AST_OR, AST_VARIABLE_ASSIGNMENT
-    struct AST_STRUCT* left_hand;
-    struct AST_STRUCT* right_hand;
-    enum binop_type {
-        BINOP_MEMBER,
-        BINOP_TIMES,
-        BINOP_DIV,
-        BINOP_PLUS,
-        BINOP_MINUS,
-        BINOP_EQEQ,
-        BINOP_NEQ,
-        BINOP_GRT,
-        BINOP_LET,
-        BINOP_GREQ,
-        BINOP_LEEQ,
-        BINOP_AND,
-        BINOP_OR,
-        BINOP_ASSIGN
-    } binop_type;
-    
+    size_t lineno;
+    size_t charno;
+    size_t index;
     enum parenthetical {
         NOT_PARENTHETICAL,
         PARENTHETICAL
     } parenthetical;
-    // AST_UNOP
-    enum unop_type {
-        UNOP_NOT,
-        UNOP_NEG
-    } unop_type;
-    struct AST_STRUCT* unop_value;
-
-    // AST_IF
-    struct AST_STRUCT* if_condition;
-    struct AST_STRUCT* if_body;
-    // AST_ELIF
-    struct AST_STRUCT* elif_condition;
-    struct AST_STRUCT* elif_body;
-    // AST_ELSE
-    struct AST_STRUCT* else_body;
-
-    struct AST_STRUCT* next_statement;
-
-    // AST_WHILE
-    struct AST_STRUCT* while_condition;
-    struct AST_STRUCT* while_body;
-    // AST_FOR
-    struct AST_STRUCT* for_initializer;
-    struct AST_STRUCT* for_condition;
-    struct AST_STRUCT* for_iterator;
-    struct AST_STRUCT* for_body;
-
-    // AST_RETURN
-    struct AST_STRUCT* return_value;
-
-    // AST_HEADER
-    char* header_function_name;
-    ast_arglist_T* header_function_args;
-    char* header_function_return_type;
-
-    // AST_CLASS_DEFINITION
-    char* class_name;
-    char** class_prototype_names;
-    size_t class_prototype_names_size;
-    struct AST_STRUCT** class_members;
-    size_t class_members_size;
-
-    // AST_MEMBER
-    struct AST_STRUCT* member_parent;
-    char* member_name;
-
-    // AST_NEW
-    struct AST_STRUCT* new_function_call;
-
-    // AST_CONSTRUCTOR
-    struct AST_STRUCT* constructor_function_body;
-    ast_arglist_T* constructor_args;
-    
-    size_t lineno;
-    size_t charno;
-    size_t index;
+    union {
+        struct {
+            // AST_VARIABLE_DEFINITION
+            char* variable_definition_type;
+            char* variable_definition_name;
+            struct AST_STRUCT* variable_definition_value;
+            char variable_definition_is_static;
+            char variable_definition_is_private;
+        };
+        struct {
+            // AST_VARIABLE
+            char* variable_name;
+        };
+        struct {
+            // AST_FUNCTION_CALL
+            struct AST_STRUCT* function_call_function;
+            char** function_call_named_names;
+            struct AST_STRUCT** function_call_named_values;
+            size_t function_call_named_size;
+            struct AST_STRUCT** function_call_unnamed_values;
+            size_t function_call_unnamed_size;
+        };
+        struct {
+            // AST_FUNCTION_DEFINITION
+            char* function_definition_name;
+            struct AST_STRUCT* function_definition_body;
+            ast_arglist_T* function_definition_args;
+            char* function_definition_return_type;
+            char function_definition_is_static;
+            char function_definition_is_private;
+        };
+        struct {
+            // STRING
+            char* string_value;
+        };
+        struct {
+            // INT
+            int int_value;
+        };
+        struct {
+            // FLOAT
+            float float_value;
+        };
+        struct {
+            // DOUBLE
+            double double_value;
+        };
+        struct {
+            // BOOL
+            int bool_value;
+        };
+        struct {
+            // AST_COMPOUND
+            struct AST_STRUCT** compound_value;
+            size_t compound_size;
+        };
+        struct {
+            // AST_HEADER_LIST
+            enum {
+                HEADER_NORMAL,
+                HEADER_C,
+                HEADER_CPP
+            } headers_type;
+            struct AST_STRUCT** headers_value;
+            size_t headers_size;
+        };
+        struct {
+            // AST_PLUS, AST_MINUS, AST_TIMES, AST_SLASH, AST_EQ, AST_NEQ, AST_GRT, AST_LET, AST_GREQ, AST_LEEQ, AST_AND, AST_OR, AST_VARIABLE_ASSIGNMENT
+            struct AST_STRUCT* left_hand;
+            struct AST_STRUCT* right_hand;
+            enum binop_type {
+                BINOP_MEMBER,
+                BINOP_TIMES,
+                BINOP_DIV,
+                BINOP_PLUS,
+                BINOP_MINUS,
+                BINOP_EQEQ,
+                BINOP_NEQ,
+                BINOP_GRT,
+                BINOP_LET,
+                BINOP_GREQ,
+                BINOP_LEEQ,
+                BINOP_AND,
+                BINOP_OR,
+                BINOP_ASSIGN
+            } binop_type;
+        };
+        struct {
+            // AST_UNOP
+            enum unop_type {
+                UNOP_NOT,
+                UNOP_NEG
+            } unop_type;
+            struct AST_STRUCT* unop_value;
+        };
+        struct {
+            union {
+                struct {
+                    // AST_IF
+                    struct AST_STRUCT* if_condition;
+                    struct AST_STRUCT* if_body;
+                };
+                struct {
+                    // AST_ELIF
+                    struct AST_STRUCT* elif_condition;
+                    struct AST_STRUCT* elif_body;
+                };
+                struct {
+                    // AST_ELSE
+                    struct AST_STRUCT* else_body;
+                };
+            };
+            struct AST_STRUCT* next_statement;
+        };
+        struct {
+            // AST_WHILE
+            struct AST_STRUCT* while_condition;
+            struct AST_STRUCT* while_body;
+        };
+        struct {
+            // AST_FOR
+            struct AST_STRUCT* for_initializer;
+            struct AST_STRUCT* for_condition;
+            struct AST_STRUCT* for_iterator;
+            struct AST_STRUCT* for_body;
+        };
+        struct {
+            // AST_RETURN
+            struct AST_STRUCT* return_value;
+        };
+        struct {
+            // AST_HEADER
+            char* header_function_name;
+            ast_arglist_T* header_function_args;
+            char* header_function_return_type;
+        };
+        struct {
+            // AST_CLASS_DEFINITION
+            char* class_name;
+            char** class_prototype_names;
+            size_t class_prototype_names_size;
+            struct AST_STRUCT** class_members;
+            size_t class_members_size;
+        };
+        struct {
+            // AST_MEMBER
+            struct AST_STRUCT* member_parent;
+            char* member_name;
+        };
+        struct {
+            // AST_NEW
+            struct AST_STRUCT* new_function_call;
+        };
+        struct {
+            // AST_CONSTRUCTOR
+            struct AST_STRUCT* constructor_function_body;
+            ast_arglist_T* constructor_args;
+        };
+    };
 } AST_T;
 struct PARSER_STRUCT;
 AST_T* init_ast(int type, struct PARSER_STRUCT* parser);
