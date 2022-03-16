@@ -175,6 +175,16 @@ AST_T* parser_parse_variable_definition(parser_T* parser) {
         ast_variable_definition->variable_definition_value = parser_parse_expr(parser);
     } else if (parser->current_token->type == TOKEN_SEMI || parser->lexer->newline) {
         ast_variable_definition->variable_definition_value = (void*) 0;
+    } else if (parser->current_token->type == TOKEN_LPAREN) {
+        AST_T* type_variable = init_ast(AST_VARIABLE, parser);
+        type_variable->variable_name = ast_variable_definition->variable_definition_type;
+        ast_variable_definition->variable_definition_type = (void*) 0;
+        ast_variable_definition->variable_definition_value = parser_parse_function_call(parser, type_variable);
+    } else if (parser->current_token->type == TOKEN_ID && utils_strcmp(ast_variable_definition->variable_definition_type, "new")) {
+        AST_T* ast_new = init_ast(AST_NEW, parser);
+        ast_new->new_function_call = parser_parse_expr(parser);
+        ast_variable_definition->variable_definition_value = ast_new;
+        ast_variable_definition->variable_definition_type = (void*) 0;
     } else {
         err_unexpected_token(parser, TOKEN_EQUALS);
     }
@@ -559,7 +569,12 @@ AST_T* parser_parse_while(parser_T* parser) {
 AST_T* parser_parse_return(parser_T* parser) {
     AST_T* ast_return = init_ast(AST_RETURN, parser);
     parser_eat(parser, TOKEN_ID); // return
-    ast_return->return_value = parser_parse_expr(parser);
+    if (parser->current_token->type == TOKEN_SEMI) {
+        parser_eat(parser, TOKEN_SEMI);
+        ast_return->return_value = (void*) 0;
+    } else {
+        ast_return->return_value = parser_parse_expr(parser);
+    }
     return ast_return;
 }
 
@@ -651,6 +666,7 @@ AST_T* parser_parse_class_definition(parser_T* parser) {
     AST_T* ast_class_definition = init_ast(AST_CLASS_DEFINITION, parser);
     parser_eat(parser, TOKEN_ID); // class
     ast_class_definition->class_name = parser->current_token->value;
+    ast_class_definition->class_prototype_names_size = 0;
     parser_eat(parser, TOKEN_ID); // <classname>
     if (parser->current_token->type == TOKEN_COLON) {
         parser_eat(parser, TOKEN_COLON);
@@ -671,17 +687,35 @@ AST_T* parser_parse_class_definition(parser_T* parser) {
     while (parser->current_token->type != TOKEN_RBRACE) {
         if (parser->current_token->type == TOKEN_ID) {
             int is_static = 0;
+            int is_private = -1;
             if (utils_strcmp(parser->current_token->value, "static")) {
                 is_static = 1;
+                parser_eat(parser, TOKEN_ID);
+            }
+            if (utils_strcmp(parser->current_token->value, "private")) {
+                is_private = 1;
+                parser_eat(parser, TOKEN_ID);
+            } else if (utils_strcmp(parser->current_token->value, "public")) {
+                is_private = 0;
                 parser_eat(parser, TOKEN_ID);
             }
             if (utils_strcmp(parser->current_token->value, "fun")) {
                 AST_T* ast_function_definition = parser_parse_function_definition(parser);
                 ast_function_definition->function_definition_is_static = is_static;
+                if (is_private == 1) {
+                    ast_function_definition->function_definition_is_private = 1;
+                } else {
+                    ast_function_definition->function_definition_is_private = 0;
+                }
                 list_add(&ast_class_definition->class_members, &ast_class_definition->class_members_size, ast_function_definition);
             } else if (utils_strcmp(parser->current_token->value, "var")) {
                 AST_T* ast_variable_definition = parser_parse_variable_definition(parser);
                 ast_variable_definition->variable_definition_is_static = is_static;
+                if (is_private == 0) {
+                    ast_variable_definition->variable_definition_is_private = 0;
+                } else {
+                    ast_variable_definition->variable_definition_is_private = 1;
+                }
                 list_add(&ast_class_definition->class_members, &ast_class_definition->class_members_size, ast_variable_definition);
                 if (parser->current_token->type == TOKEN_SEMI) {
                     parser_eat(parser, TOKEN_SEMI);
@@ -738,8 +772,11 @@ AST_T* parser_parse_class_definition(parser_T* parser) {
                 }
                 parser_eat(parser, TOKEN_RPAREN);
                 parser_eat(parser, TOKEN_LBRACE);
-                parser_parse_statements(parser);
+                ast_constructor->constructor_function_body = parser_parse_statements(parser);
                 parser_eat(parser, TOKEN_RBRACE);
+                list_add(&ast_class_definition->class_members, &ast_class_definition->class_members_size, ast_constructor);
+            } else {
+                err_unexpected_token(parser, TOKEN_ID);
             }
         } else {
             err_unexpected_token(parser, TOKEN_ID);
@@ -750,7 +787,7 @@ AST_T* parser_parse_class_definition(parser_T* parser) {
 }
 AST_T* parser_parse_new(parser_T* parser) {
     AST_T* ast_new = init_ast(AST_NEW, parser);
-    parser_eat(parser, TOKEN_ID);
+    parser_eat(parser, TOKEN_ID); // new
     ast_new->new_function_call = parser_parse_expr(parser);
     return ast_new;
 }
