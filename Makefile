@@ -24,10 +24,6 @@ aslink:
 lib: $(lib)
 	gcc -c stdlib/lib.s -o stdlib/lib.o
 
-run:
-	make
-	./compiler.out ./examples/example
-
 clean:
 	-rm *.out
 	-rm stdlib/*.o
