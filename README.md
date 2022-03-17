@@ -9,13 +9,13 @@ Experimental project to learn assembly and other low-level stuff.
 - Function calls
 - Integer addition/substraction
 - If, else if, else and comparisons
-- Limited object orientation with function calls on structures
+- Limited object orientation
 ## In progress
 - Implement all comparisons
 ## TODO:
 - [ ] Add import
 - [x] Implement classes
-    - [ ] Implement public/private
+    - [x] Implement public/private
     - [ ] Implement static class members
     - [x] Implement structure pointers
     - [x] Implement local structures
