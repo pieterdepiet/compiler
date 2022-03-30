@@ -1,7 +1,6 @@
 #include "include/scope.h"
 #include <stdlib.h>
 #include "include/utils.h"
-#include "include/list.h"
 #include <stdio.h>
 
 global_T* init_global_scope(struct VISITOR_STRUCT* visitor) {

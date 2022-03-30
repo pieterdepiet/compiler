@@ -4,7 +4,6 @@
 #include <math.h>
 #include "include/utils.h"
 #include "include/errors.h"
-#include "include/list.h"
 
 static int powi(int base, int exp) {
     if (exp<1) {

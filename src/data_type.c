@@ -1,7 +1,7 @@
 #include "include/data_type.h"
 #include <stdlib.h>
 #include <string.h>
-#include "include/list.h"
+#include "include/utils.h"
 
 data_type_T* init_data_type(int primitive_type, char* type_name) {
     data_type_T* data_type = calloc(1, sizeof(data_type_T));

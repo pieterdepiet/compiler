@@ -1,5 +1,5 @@
 #include "include/defs.h"
-#include "include/list.h"
+#include "include/utils.h"
 void defs_define_all(global_T* global_scope) {
     data_type_T* null_type = init_data_type(TYPE_NULL, "Null");
     null_type->primitive_size = 0;

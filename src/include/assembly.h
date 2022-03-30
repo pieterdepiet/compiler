@@ -1,7 +1,6 @@
 #ifndef AS_TEXT_H
 #define AS_TEXT_H
-#include "data_type.h"
-#include "list.h"
+#include <sys/types.h>
 
 typedef union assembly_value_union {
     char char_value;

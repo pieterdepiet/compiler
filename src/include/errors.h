@@ -3,6 +3,7 @@
 #include "AST.h"
 #include "assembly.h"
 #include "parser.h"
+#include "data_type.h"
 
 void err_unexpected_token(parser_T* parser, int expected);
 void err_unexpected_node(AST_T* node);
