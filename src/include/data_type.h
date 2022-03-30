@@ -4,12 +4,14 @@
 
 
 typedef struct DATA_TYPE_STRUCT {
-    enum {
+    enum primitive_type {
         TYPE_NULL,
-        TYPE_INT,
-        TYPE_UINT,
         TYPE_CHAR,
         TYPE_UCHAR,
+        TYPE_SHORT,
+        TYPE_USHORT,
+        TYPE_INT,
+        TYPE_UINT,
         TYPE_LONG,
         TYPE_ULONG,
         TYPE_BOOL,
