@@ -41,6 +41,16 @@ data_type_T* get_data_type(scope_T* scope, char* name) {
         }
     }
 }
+int primtype_to_astype(enum primitive_type primitive_type) {
+    switch (primitive_type) {
+        case TYPE_BOOL: case TYPE_CHAR: case TYPE_UCHAR: return ASTYPE_CHAR;
+        case TYPE_SHORT: case TYPE_USHORT: return ASTYPE_SHORT;
+        case TYPE_INT: case TYPE_UINT: return ASTYPE_INT;
+        case TYPE_LONG: case TYPE_ULONG: return ASTYPE_LONG;
+        default: exit(3);
+    }
+    return 0;
+}
 int node_to_data_type(scope_T* scope, data_type_T* data_type, AST_T* node) {
     if (data_type == scope->visitor->int_type) {
         if (node->type == AST_INT) {
@@ -259,7 +269,7 @@ data_type_T* visitor_visit_binop(scope_T* scope, AST_T* node, data_type_T* hint)
     as_op = init_as_op(ASOP_BINOP);
     as_op->op_size = left_hand_type->primitive_size;
     as_op->binop_type = node->binop_type;
-    as_op->data_type = left_hand_type;
+    as_op->data_type = primtype_to_astype(left_hand_type->primitive_type);
     as_add_op_to_function(scope->as_function, as_op);
     as_op = init_as_op(ASOP_FREEREG);
     as_add_op_to_function(scope->as_function, as_op);
@@ -276,14 +286,14 @@ data_type_T* visitor_visit_unop(scope_T* scope, AST_T* node, data_type_T* hint) 
     }
     as_op->unop_type = node->unop_type;
     as_op->op_size = valuetype->primitive_size;
-    as_op->data_type = valuetype;
+    as_op->data_type = primtype_to_astype(valuetype->primitive_type);
     as_add_op_to_function(scope->as_function, as_op);
     return valuetype;
 }
 data_type_T* visitor_visit_int(scope_T* scope, AST_T* node) {
     as_op_T* asop = init_as_op(ASOP_SETLASTIMM);
     asop->op_size = scope->visitor->int_type->primitive_size;
-    asop->data_type = scope->visitor->int_type;
+    asop->data_type = ASTYPE_INT;
     asop->value.int_value = node->int_value;
     as_add_op_to_function(scope->as_function, asop);
     return scope->visitor->int_type;
@@ -295,30 +305,30 @@ data_type_T* visitor_visit_int_as(scope_T* scope, AST_T* node, data_type_T* data
             err_overflow();
         }
         asop->op_size = sizeof(int);
-        asop->data_type = data_type;
+        asop->data_type = ASTYPE_CHAR;
         asop->value.char_value = node->int_value;
         as_add_op_to_function(scope->as_function, asop);
         return data_type;
     } else {
         as_op_T* asop = init_as_op(ASOP_SETLASTIMM);
         asop->op_size = sizeof(int);
-        asop->data_type = data_type;
+        asop->data_type = ASTYPE_INT;
         asop->value.int_value = node->int_value;
         as_add_op_to_function(scope->as_function, asop);
         return data_type->primitive_type==TYPE_UINT?data_type:scope->visitor->int_type;
     }
 }
 data_type_T* visitor_visit_string(scope_T* scope, AST_T* node) {
-    char* name = calloc(1, (4 + 1 + 5 + 3) * sizeof(char));
+    char* name = calloc(1, (prefix_len + 1 + 5 + 5 + 1) * sizeof(char));
     sprintf(name, prefix ".string%zu", scope->visitor->as_file->unnamed_string_count);
     scope->visitor->as_file->unnamed_string_count++;
-    as_data_T* as_data = init_as_data(name, scope->visitor->string_type);
+    as_data_T* as_data = init_as_data(name, ASTYPE_STRING);
     as_data->value.ptr_value = node->string_value;
-    as_data->value_type = scope->visitor->string_type;
     as_add_data(scope->visitor->as_file, as_data);
     as_op_T* as_op = init_as_op(ASOP_SYMBADDRREF);
-    as_op->name = name;
-    as_op->op_size = 8;
+    char* name2 = calloc(1, (prefix_len + 1 + 5 + 5 + 1) * sizeof(char));
+    strcpy(name2, name);
+    as_op->name = name2;
     as_add_op_to_function(scope->as_function, as_op);
     return scope->visitor->string_type;
 }
@@ -349,9 +359,6 @@ data_type_T* visitor_visit_variable_definition(scope_T* scope, AST_T* node) {
             as_op->op_size = definition_type->primitive_size;
             as_add_op_to_function(scope->as_function, as_op);
         } else {
-            as_op_T* as_op = init_as_op(ASOP_VDEFNULL);
-            as_op->op_size = definition_type->primitive_size;
-            as_add_op_to_function(scope->as_function, as_op);
             scope_add_variable(scope, node->variable_definition_name, definition_type);
         }
     } else if (node->variable_definition_value->type == AST_FUNCTION_CALL) {
@@ -369,7 +376,6 @@ data_type_T* visitor_visit_variable_definition(scope_T* scope, AST_T* node) {
         // Move this address to %rax
         as_op = init_as_op(ASOP_MEMTOREG);
         as_op->argno = 0;
-        as_op->op_size = 8;
         as_add_op_to_function(scope->as_function, as_op);
 
         fspec_T* fspec = init_fspec(data_type);
@@ -389,7 +395,6 @@ data_type_T* visitor_visit_variable_definition(scope_T* scope, AST_T* node) {
                             ;
                         if (j == f->named_length) {
                             as_op_T* call_op = init_as_op(ASOP_FCALL);
-                            call_op->op_size = 8;
                             call_op->name = f->symbol_name;
                             as_add_op_to_function(scope->as_function, call_op);
                         }
@@ -858,7 +863,6 @@ data_type_T* visitor_visit_new(scope_T* scope, AST_T* node) {
         data_type = NULL;
         err_unexpected_node(node->new_function_call);
     }
-    as_op->data_type = data_type;
     data_type_T* new_type = init_pointer_to(data_type);
     new_type->primitive_size = 8;
     if (node->new_function_call->type == AST_FUNCTION_CALL) {
@@ -916,28 +920,32 @@ data_type_T* visitor_visit_new(scope_T* scope, AST_T* node) {
     return new_type;
 }
 data_type_T* visitor_visit_if(scope_T* scope, AST_T* node) {
+    as_function_T* as = scope->as_function;
     data_type_T* condition = visitor_visit(scope, node->if_condition, scope->visitor->bool_type);
     if (condition != scope->visitor->bool_type) {
         err_conflicting_types(condition, scope->visitor->bool_type, node->if_condition);
     }
-    as_op_T* start_op = init_as_op(ASOP_OPENIF);
-    as_add_op_to_function(scope->as_function, start_op);
+    as_op_T* start_op = init_as_op(ASOP_JCOND);
+    start_op->bb_no = ++as->last_bb;
+    as_add_op_to_function(as, start_op);
 
     scope_T* if_scope = init_scope(scope);
     data_type_T* return_type = visitor_visit_compound(if_scope, node->if_body, scope->return_type);
-    as_op_T* close_op = init_as_op(ASOP_CLOSEIF);
-    start_op->bb_ptr = close_op;
     AST_T* last_statement = node->next_statement;
-    as_op_T* last_bb_opener = start_op;
-    as_op_T* last_else = NULL;
+    size_t last_jmp = start_op->bb_no;
+    size_t close_bb_no = 0;
     while (last_statement) {
         if (last_statement->type == AST_ELSE) {
             scope_T* else_scope = init_scope(scope);
-            as_op_T* as_op = init_as_op(ASOP_ELSE);
-            last_bb_opener->bb_ptr = as_op;
-            as_op->bb_no = -1;
-            as_op->bb_ptr = close_op;
-            as_add_op_to_function(scope->as_function, as_op);
+            as_op_T* as_op = init_as_op(ASOP_JMP);
+            if (close_bb_no < 1) {
+                close_bb_no = ++as->last_bb;
+            }
+            as_op->bb_no = close_bb_no;
+            as_add_op_to_function(as, as_op);
+            as_op = init_as_op(ASOP_BB);
+            as_op->bb_no = last_jmp;
+            as_add_op_to_function(as, as_op);
             data_type_T* else_return_type = visitor_visit_compound(else_scope, last_statement->else_body, scope->return_type);
             if (else_return_type == scope->visitor->null_type) {
                 return_type = scope->visitor->null_type;
@@ -946,32 +954,39 @@ data_type_T* visitor_visit_if(scope_T* scope, AST_T* node) {
             break;
         } else if (last_statement->type == AST_ELIF) {
             scope_T* elif_scope = init_scope(scope);
-            as_op_T* else_op = init_as_op(ASOP_ELSE);
-            last_bb_opener->bb_ptr = else_op;
-            else_op->bb_no = -1;
+            as_op_T* as_op = init_as_op(ASOP_JMP);
+            if (close_bb_no < 1) {
+                close_bb_no = ++as->last_bb;
+            }
+            as_op->bb_no = close_bb_no;
+            as_add_op_to_function(as, as_op);
+            as_op_T* else_op = init_as_op(ASOP_BB);
+            else_op->bb_no = last_jmp;
             as_add_op_to_function(scope->as_function, else_op);
             condition = visitor_visit(scope, last_statement->elif_condition, scope->visitor->bool_type);
             if (condition != scope->visitor->bool_type) {
                 err_conflicting_types(condition, scope->visitor->bool_type, last_statement->elif_body);
             }
-            as_op_T* as_op = init_as_op(ASOP_OPENIF);
-            as_op->bb_ptr = close_op;
+            as_op = init_as_op(ASOP_JCOND);
+            last_jmp = (as_op->bb_no = ++as->last_bb);
             as_add_op_to_function(scope->as_function, as_op);
             data_type_T* elif_return_type = visitor_visit_compound(elif_scope, last_statement->elif_body, scope->return_type);
             if (elif_return_type == scope->visitor->null_type) {
                 return_type = scope->visitor->null_type;
             }
-            as_op->bb_no = -1;
-            else_op->bb_ptr = close_op;
-            last_else = else_op;
-            last_bb_opener = as_op;
         } else {
             err_unexpected_node(last_statement);
         }
         last_statement = last_statement->next_statement;
     }
     // if (close_op->type == ASOP_ELSE) {
-    close_op->bb_no = -1;
+    as_op_T* close_op = init_as_op(ASOP_BB);
+    if (close_bb_no > 0) {
+        close_op->bb_no = close_bb_no;
+    } else {
+        close_op->bb_no = start_op->bb_no;
+    }
+
     // } else {
     //     last_bb_opener->bb_ptr = close_op;
     // }
