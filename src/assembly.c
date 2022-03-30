@@ -29,7 +29,7 @@ const char* argtostack_format =   "  mov%c %s, -%lu(%%rbp)\n";
 const size_t argtostack_format_min_length = 17 + reg_length + size_str_max_length + 1;
 const char* argtoreg_format =     "  mov%c %s, %s\n";
 const size_t argtoreg_format_min_length = 11 + reg_length + 1;
-const char* fcall_format =        "  call%c %s\n";
+const char* fcall_format =        "  call %s\n";
 const size_t fcall_format_min_length = 9 + 1;
 const char* toreg_format =    "  mov%c %s, %s\n";
 const size_t toreg_format_min_length = 10 + reg_length + 1;
@@ -54,13 +54,6 @@ const char* symbref_format =  "%s(%%rip)";
 const size_t symbref_format_min_length = 6 + 1;
 const char* lea_format =  "  lea%c %s(%%rip), %s\n";
 const size_t lea_format_min_length = 7 + 9 + 1;
-const char* openif_format =   "  j%s LBB%lu_%lu\n";
-const size_t openif_format_min_length = 9 + 2 * size_str_max_length + 1;
-const char* else_format = "  jmp LBB%lu_%lu\n"
-                        "LBB%lu_%lu:\n";
-const size_t else_format_min_length = 11 + 2 * size_str_max_length + 6 + 2 * size_str_max_length + 1;
-const char* closeif_format =  "LBB%lu_%lu:\n";
-const size_t closeif_format_length = 6 + 2 * size_str_max_length + 1;
 const char* lea_memb_format = "  leaq -%lu(%%rax), %s\n";
 const size_t lea_memb_format_len = 6 + size_str_max_length + 8 + 1;
 const char* lea_mem_format =  "  leaq -%lu(%%rbp), %s\n";
@@ -69,6 +62,12 @@ const char* push_format =   "  mov%c %s, -%lu(%%rbp)\n";
 const size_t push_format_min_len = 10 + size_str_max_length + 7 + 1;
 const char* pop_format =    "  mov%c -%lu(%%rbp), %s\n";
 const size_t pop_format_min_len = 8 + size_str_max_length + 9 + 1;
+const char* jcond_format =  "  j%s LBB%lu.%u\n";
+const size_t jcond_len = 9 + 2 * size_str_max_length + 1;
+const char* jmp_format =    "  jmp LBB%lu.%u\n";
+const size_t jmp_len = 11 + 2 * size_str_max_length + 1;
+const char* bb_format = "LBB%lu.%u:\n";
+const size_t bb_len = 6 + 2 * size_str_max_length + 1;
 
 
 int arg_registers[] = {REG_DI, REG_SI, REG_DX, REG_CX};
@@ -159,14 +158,11 @@ char* data_type_size_register(int reg, char size) {
 // Init functions
 as_file_T* init_as_file() {
     as_file_T* as_file = calloc(1, sizeof(struct assembly_file_struct));
-    as_file->data = init_list();
-    as_file->functions = init_list();
     return as_file;
 }
 as_function_T* init_as_function(char* name) {
     as_function_T* as_function = calloc(1, sizeof(struct ASSEMBLY_FUNCTION_STRUCT));
     as_function->name = name;
-    as_function->operations = init_list();
     as_function->last_register = 0;
     as_function->last_imm_str = (void*) 0;
     as_function->last_stack_offset = 0;
@@ -176,10 +172,11 @@ as_function_T* init_as_function(char* name) {
     as_function->zerouses = 0;
     return as_function;
 }
-as_data_T* init_as_data(char* name, data_type_T* data_type) {
+as_data_T* init_as_data(char* name, enum astype as_type) {
     as_data_T* as_data = calloc(1, sizeof(struct assembly_data_struct));
-    as_data->value_type = data_type;
+    as_data->type = as_type;
     as_data->name = name;
+
     return as_data;
 }
 as_op_T* init_as_op(int type) {
@@ -199,19 +196,19 @@ as_text_T* init_as_text() {
 }
 // Small functions
 void as_add_data(as_file_T* as, as_data_T* data) {
-    list_add_list(as->data, data);
+    list_add(&as->data, &as->data_size, data);
 }
 void as_add_function(as_file_T* as, as_function_T* function) {
-    function->function_no = as->functions->size;
-    list_add_list(as->functions, function);
+    function->function_no = as->functions_size;
+    list_add(&as->functions, &as->functions_size, function);
 }
 void as_add_op_to_function(as_function_T* function, as_op_T* op) {
-    list_add_list(function->operations, op);
+    list_add(&function->operations, &function->operations_size, op);
 }
 
 void as_compile_data(as_text_T* as, char** as_text, as_data_T* data) {
     char* format = "%s  %s: .%s %s\n";
-    char* value_string = as_compile_to_imm(data->value_type, data->value);
+    char* value_string = as_compile_to_imm(data->type, data->value);
     size_t as_text_size = 
     strlen(*as_text)
     + 2 // <space><space>
@@ -224,24 +221,29 @@ void as_compile_data(as_text_T* as, char** as_text, as_data_T* data) {
     ;
     *as_text = realloc(*as_text, as_text_size * sizeof(char));
     char* assembly_type = (void*) 0;
-    switch (data->value_type->primitive_type) {
-        case TYPE_STRING: assembly_type = "asciz"; break;
-        case TYPE_INT: assembly_type = "long"; break;
-        default: err_bad_global_type(data->value_type); break;
+    switch (data->type) {
+        case ASTYPE_CHAR: assembly_type = "byte"; break;
+        case ASTYPE_SHORT: assembly_type = "short"; break;
+        case ASTYPE_INT: assembly_type = "long"; break;
+        case ASTYPE_LONG: assembly_type = "quad"; break;
+        case ASTYPE_STRING: assembly_type = "asciz"; free(data->value.ptr_value); break;
     }
     sprintf(*as_text, format, *as_text, data->name, assembly_type, value_string);
+    free(value_string);
+    free(data->name);
+    free(data);
 }
 as_text_T* as_compile_file(as_file_T* as_file) {
     as_text_T* as = init_as_text();
     as->buf = calloc(1, sizeof(char));
     as->buf[0] = '\0';
     utils_strcat(&as->buf, as_data_section_start);
-    for (size_t i = 0; i < as_file->data->size; i++) {
-        as_compile_data(as, &as->buf, as_file->data->el[i]);
+    for (size_t i = 0; i < as_file->data_size; i++) {
+        as_compile_data(as, &as->buf, as_file->data[i]);
     }
     utils_strcat(&as->buf, as_text_section_start);
-    for (size_t i = 0; i < as_file->functions->size; i++) {
-        as_compile_function_definition(as, &as->buf, as_file->functions->el[i]);
+    for (size_t i = 0; i < as_file->functions_size; i++) {
+        as_compile_function_definition(as, &as->buf, as_file->functions[i]);
     }
     return as;
 }
@@ -254,16 +256,16 @@ void as_compile_function_definition(as_text_T* as, char** as_text, as_function_T
     "  push %%rbp\n"
     "  movq %%rsp, %%rbp\n"
     "  subq $%lu, %%rsp\n", *as_text, function->name, function->scope_size + function->visitor_max_extra_stack + 16 - ((function->scope_size + function->visitor_max_extra_stack) % 16));
-    for (size_t i = 0; i < function->operations->size; i++) {
-        as_compile_operation(function, as_text, function->operations->el[i]);
+    for (size_t i = 0; i < function->operations_size; i++) {
+        as_compile_operation(function, as_text, function->operations[i]);
     }
 }
-char* as_compile_to_imm(data_type_T* type, as_value_U value) {
-    if (type->primitive_type==TYPE_INT) {
+char* as_compile_to_imm(enum astype type, as_value_U value) {
+    if (type==ASTYPE_INT) {
         char* tmp = calloc(1, (1 + int_max_length) * sizeof(char));
         sprintf(tmp, "$%d", value.int_value);
         return tmp;
-    } else if (type->primitive_type==TYPE_STRING) {
+    } else if (type==ASTYPE_STRING) {
         char* tmp = calloc(1, (1 + strlen((char*) value.ptr_value) + 1 + 1));
         sprintf(tmp, "\"%s\"", (char*) value.ptr_value);
         return tmp;
@@ -298,7 +300,6 @@ char* as_ensure_no_mem(as_function_T* as, char** as_text, as_op_T* op) {
     }
 }
 void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
-    // printf("Asop %s op size %d lastreg %d\n", as_op_type_string(op->type), op->op_size, as->last_register);
     if (op->type == ASOP_NOP) {
         return;
     } if (op->type == ASOP_SETLASTIMM) {
@@ -315,7 +316,7 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         free(temp);
     } else if (op->type == ASOP_FCALL) {
         char* temp = calloc(1, (fcall_format_min_length + strlen(op->name)) * sizeof(char));
-        sprintf(temp, fcall_format, data_type_size_op_char(op->op_size), op->name);
+        sprintf(temp, fcall_format, op->name);
         utils_strcat(as_text, temp);
         free(temp);
     } else if (op->type == ASOP_RETVAL) {
@@ -374,38 +375,23 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         sprintf(temp, memtoreg_format, data_type_size_op_char(op->op_size), as->mem_loc, "%rax");
         utils_strcat(as_text, temp);
         free(temp);
-    } else if (op->type == ASOP_OPENIF) {
-        if (op->bb_ptr->bb_no == -1) {
-            op->bb_ptr->bb_no = as->last_bb;
-            as->last_bb++;
-        }
-        op->bb_no = op->bb_ptr->bb_no;
-        char* condition = as_comp_inv_str(as->last_comparison);
-        char* temp = calloc(1, (openif_format_min_length + strlen(condition)) * sizeof(char));
-        sprintf(temp, openif_format, condition, as->function_no, op->bb_no);
+    } else if (op->type == ASOP_JCOND) {
+        char* cond = as_comp_inv_str(as->last_comparison);
+        char* temp = calloc(1, (jcond_len + strlen(cond)) * sizeof(char));
+        sprintf(temp, jcond_format, cond, as->function_no, op->bb_no);
         utils_strcat(as_text, temp);
         free(temp);
-    } else if (op->type == ASOP_CLOSEIF) {
-        char* temp = calloc(1, (closeif_format_length) * sizeof(char));
-        sprintf(temp, closeif_format, as->function_no, op->bb_no);
+        // free(cond);
+    } else if (op->type == ASOP_JMP) {
+        char* temp = calloc(1, jmp_len * sizeof(char));
+        sprintf(temp, jmp_format, as->function_no, op->bb_no);
         utils_strcat(as_text, temp);
         free(temp);
-    } else if (op->type == ASOP_ELSE) {
-        if (op->bb_ptr) {
-            if (op->bb_ptr->bb_no == -1) {
-                op->bb_ptr->bb_no = as->last_bb;
-                as->last_bb++;
-            }
-            char* temp = calloc(1, (else_format_min_length) * sizeof(char));
-            sprintf(temp, else_format, as->function_no, op->bb_ptr->bb_no, as->function_no, op->bb_no);
-            utils_strcat(as_text, temp);
-            free(temp);
-        } else {
-            printf("Error: No bb opener in else\n");
-            exit(1);
-        }
-    } else if (op->type == ASOP_VDEFNULL) {
-        
+    } else if (op->type == ASOP_BB) {
+        char* temp = calloc(1, bb_len * sizeof(char));
+        sprintf(temp, bb_format, as->function_no, op->bb_no);
+        utils_strcat(as_text, temp);
+        free(temp);
     } else if (op->type == ASOP_POPREG) {
         as->last_register = REG_MEM;
         as->mem_loc = as->last_stack_offset;
@@ -563,7 +549,7 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
 }
 void as_compile_binop(as_function_T* as, char** as_text, as_op_T* op, char* src) {
     char* instr;
-    if (op->data_type->primitive_type == TYPE_INT) {
+    if (op->data_type == ASTYPE_INT) {
         if (op->binop_type == BINOP_PLUS) {
             instr = "add";
         } else if (op->binop_type == BINOP_MINUS) {
@@ -601,11 +587,11 @@ void as_compile_binop(as_function_T* as, char** as_text, as_op_T* op, char* src)
 }
 void as_compile_unop(as_function_T* as, char** as_text, as_op_T* op, char* src) {
     // char* instr;
-    if (op->data_type->primitive_type == TYPE_INT) {
+    if (op->data_type == ASTYPE_INT) {
         if (op->unop_type == UNOP_NEG) {
-            char* neg_format =  "  movl %s, %s\n"
-                                "  subl %s, %s\n";
-            size_t neg_format_len = 10 + 10 + 1;
+            // char* neg_format =  "  movl %s, %s\n"
+            //                     "  subl %s, %s\n";
+            // size_t neg_format_len = 10 + 10 + 1;
 
         } else {
             return err_unexpected_as_op(op);
@@ -629,16 +615,15 @@ char* as_op_type_string(enum op_type type) {
         case ASOP_VMOD: return "vmod";
         case ASOP_VREF: return "vref";
         case ASOP_RETNULL: return "retnull";
-        case ASOP_VDEFNULL: return "vdefnull";
         case ASOP_NEW: return "new";
         case ASOP_MEMBREF: return "membref"; break;
         case ASOP_SETDEST: return "setdest"; break;
         case ASOP_FREEDEST: return "freedest"; break;
         case ASOP_SYMBOLREF: return "symbref"; break;
         case ASOP_SYMBADDRREF: return "symbaddrref"; break;
-        case ASOP_OPENIF: return "openif"; break;
-        case ASOP_CLOSEIF: return "closeif"; break;
-        case ASOP_ELSE: return "else"; break;
+        // case ASOP_OPENIF: return "openif"; break;
+        // case ASOP_CLOSEIF: return "closeif"; break;
+        // case ASOP_ELSE: return "else"; break;
         case ASOP_UNOP: return "unop"; break;
         case ASOP_LEA: return "lea"; break;
         case ASOP_MEMTOREG: return "memtoreg"; break;
@@ -646,6 +631,9 @@ char* as_op_type_string(enum op_type type) {
         case ASOP_POPREG: return "popreg"; break;
         case ASOP_PUSHREG: return "pushreg"; break;
         case ASOP_NOP: return "nop"; break;
+        case ASOP_JCOND: return "jcond"; break;
+        case ASOP_JMP: return "jmp"; break;
+        case ASOP_BB: return "bb"; break;
         // default: return "unknown"; break;
     }
 }
