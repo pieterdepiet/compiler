@@ -46,7 +46,7 @@ void err_unexpected_as_op(as_op_T* as_op) {
     if (as_op->type == ASOP_BINOP) {
         printf(ErrorStart "unexpected assembly binary operation type %d\n", as_op->binop_type);
     } else {
-        printf(ErrorStart "unexpected assembly operation with type %d\n", as_op->type);
+        printf(ErrorStart "unexpected assembly operation with type %s\n", as_op_type_string(as_op->type));
     }
     exit(1);
 }
