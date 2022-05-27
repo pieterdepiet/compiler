@@ -11,7 +11,7 @@
 
 void as_compile_unop(as_function_T* as, char** as_text, as_op_T* op, char* src);
 
-int math_registers[] = {REG_IMM, REG_CX, REG_DX, REG_SI, REG_DI};
+int registers[] = {REG_CX, REG_DX, REG_SI, REG_DI, REG_8D, REG_9D, REG_10D, REG_11D};
 
 const char* as_data_section_start = ".data\n";
 const char* as_text_section_start = ".text\n.globl _start\n";
@@ -68,10 +68,36 @@ const char* jmp_format =    "  jmp LBB%lu.%u\n";
 const size_t jmp_len = 11 + 2 * size_str_max_length + 1;
 const char* bb_format = "LBB%lu.%u:\n";
 const size_t bb_len = 6 + 2 * size_str_max_length + 1;
+const char* membmod_format =   "  mov%c %s, %lu(%s)\n";
+const size_t membmod_format_min_length = 17 + size_str_max_length + 1;
 
 
 int arg_registers[] = {REG_DI, REG_SI, REG_DX, REG_CX};
 
+int get_nextreg(as_function_T* as) {
+    for (size_t i = 0; i < sizeof(registers); i++) {
+        int reg = registers[i];
+        if (reg == as->ptrdest_reg) {
+            goto next;
+        }
+        for (size_t j = 0; j < as->used_registers_size; j++) {
+            if (reg == as->used_registers[j]) {
+                goto next;
+            }
+        }
+        as->used_registers = realloc(as->used_registers, ++as->used_registers_size * sizeof(int));
+        as->used_registers[as->used_registers_size-1] = reg;
+        return reg;
+        next:
+        ;
+    }
+    return REG_VOID;
+}
+int free_register(as_function_T* as) {
+    int reg = as->used_registers[--as->used_registers_size];
+    as->used_registers[as->used_registers_size] = REG_VOID;
+    return reg;
+}
 
 char* as_comp_str(enum comparison comp_type) {
     switch (comp_type) {
@@ -119,6 +145,7 @@ int inv_dict[] = {
     COMP_L,
     COMP_LE
 };
+
 char* as_comp_inv_str(int comp_type) {
     return as_comp_str(inv_dict[comp_type]);
 }
@@ -131,8 +158,10 @@ char data_type_size_op_char(char size) {
     }
 }
 char* data_type_size_register(int reg, char size) {
-    char* reg_str = calloc(1, 5 * sizeof(char));
-    if (size==2) {
+    char* reg_str = calloc(1, 6 * sizeof(char));
+    if (reg >= REG_8D) {
+        strcpy(reg_str, "%r");
+    } else if (size==2) {
         strcpy(reg_str, "%w");
     } else if (size==4) {
         strcpy(reg_str, "%e");
@@ -148,6 +177,13 @@ char* data_type_size_register(int reg, char size) {
         case REG_DX: strcat(reg_str, "dx"); break;
         case REG_DI: strcat(reg_str, "di"); break;
         case REG_SI: strcat(reg_str, "si"); break;
+        case REG_8D: strcat(reg_str, "8d"); break;
+        case REG_9D: strcat(reg_str, "9d"); break;
+        case REG_10D: strcat(reg_str, "10d"); break;
+        case REG_11D: strcat(reg_str, "11d"); break;
+        case REG_12D: strcat(reg_str, "12d"); break;
+        case REG_13D: strcat(reg_str, "13d"); break;
+        case REG_14D: strcat(reg_str, "14d"); break;
         default: err_enum_out_of_range("registers", reg); break;
     }
     if (size==1) {
@@ -189,11 +225,6 @@ as_op_T* init_as_op(int type) {
     as_op->value.ptr_value = 0;
     return as_op;
 }
-as_text_T* init_as_text() {
-    as_text_T* as_text = calloc(1, sizeof(struct AS_TEXT_STRUCT));
-    as_text->buf = (void*) 0;
-    return as_text;
-}
 // Small functions
 void as_add_data(as_file_T* as, as_data_T* data) {
     list_add(&as->data, &as->data_size, data);
@@ -206,7 +237,7 @@ void as_add_op_to_function(as_function_T* function, as_op_T* op) {
     list_add(&function->operations, &function->operations_size, op);
 }
 
-void as_compile_data(as_text_T* as, char** as_text, as_data_T* data) {
+void as_compile_data(char** as_text, as_data_T* data) {
     char* format = "%s  %s: .%s %s\n";
     char* value_string = as_compile_to_imm(data->type, data->value);
     size_t as_text_size = 
@@ -233,22 +264,30 @@ void as_compile_data(as_text_T* as, char** as_text, as_data_T* data) {
     free(data->name);
     free(data);
 }
-as_text_T* as_compile_file(as_file_T* as_file) {
-    as_text_T* as = init_as_text();
-    as->buf = calloc(1, sizeof(char));
-    as->buf[0] = '\0';
-    utils_strcat(&as->buf, as_data_section_start);
+char* as_compile_file(as_file_T* as_file) {
+    char* buf = calloc(1, sizeof(char));
+    buf[0] = '\0';
+    utils_strcat(&buf, as_data_section_start);
     for (size_t i = 0; i < as_file->data_size; i++) {
-        as_compile_data(as, &as->buf, as_file->data[i]);
+        as_compile_data(&buf, as_file->data[i]);
     }
-    utils_strcat(&as->buf, as_text_section_start);
+    utils_strcat(&buf, as_text_section_start);
     for (size_t i = 0; i < as_file->functions_size; i++) {
-        as_compile_function_definition(as, &as->buf, as_file->functions[i]);
+        as_compile_function_definition(&buf, as_file->functions[i]);
     }
-    return as;
+    utils_strcat(&buf, 
+        "\n  .section __TEXT,__cstring\n"
+    );
+    for (size_t i = 0; i < as_file->unnamed_strings_size; i++) {
+        char* tmp = calloc(1, 6 + size_str_max_length + 12 + strlen(as_file->unnamed_strings[i]) + 3);
+        sprintf(tmp, "L_.str%zu:\n  .asciz \"%s\"\n", i, as_file->unnamed_strings[i]);
+        utils_strcat(&buf, tmp);
+        free(tmp);
+        free(as_file->unnamed_strings[i]);
+    }
+    return buf;
 }
-void as_compile_function_definition(as_text_T* as, char** as_text, as_function_T* function) {
-    printf("\tCompile function %s\n", function->name);
+void as_compile_function_definition(char** as_text, as_function_T* function) {
     function->last_stack_offset = function->scope_size;
     *as_text = realloc(*as_text, (strlen(*as_text) + strlen(function->name) + 48 + size_str_max_length /* :\n  push %rbp\n  movq %rsp, %rbp\n */ + 1 /* \0 */) * sizeof(char));
     sprintf(*as_text, 
@@ -274,25 +313,27 @@ char* as_compile_to_imm(enum astype type, as_value_U value) {
     }
 }
 char* as_ensure_no_mem(as_function_T* as, char** as_text, as_op_T* op) {
-    char* reg = data_type_size_register(math_registers[as->used_reg+1], op->op_size);
+    int reg = get_nextreg(as);
+    char* regstr = data_type_size_register(reg, op->op_size);
     if (as->last_register == REG_MEM) {
-        char* tmp1 = calloc(1, (memtoreg_format_min_length + strlen(reg)) * sizeof(char));
-        sprintf(tmp1, memtoreg_format, data_type_size_op_char(op->op_size), as->mem_loc, reg);
+        char* tmp1 = calloc(1, (memtoreg_format_min_length + strlen(regstr)) * sizeof(char));
+        sprintf(tmp1, memtoreg_format, data_type_size_op_char(op->op_size), as->mem_loc, regstr);
         utils_strcat(as_text, tmp1);
-        as->last_register = math_registers[as->used_reg+1];
+        as->last_register = reg;
     } else if (as->last_register == REG_SYMBADDR) {
         char* format = "  lea%c %s(%%rip), %s\n";
-        char* tmp = calloc(1, (7 + strlen(as->last_imm_str) + 9 + strlen(reg) + 1) * sizeof(char));
-        sprintf(tmp, format, data_type_size_op_char(op->op_size), as->last_imm_str, reg);
+        char* tmp = calloc(1, (7 + strlen(as->last_imm_str) + 9 + strlen(regstr) + 1) * sizeof(char));
+        sprintf(tmp, format, data_type_size_op_char(op->op_size), as->last_imm_str, regstr);
         utils_strcat(as_text, tmp);
-        as->last_register = math_registers[as->used_reg+1];
+        as->last_register = reg;
     } else if (as->last_register == REG_SYMB) {
         char* format = "  mov%c %s(%%rip), %s\n";
-        char* tmp = calloc(1, (7 + strlen(as->last_imm_str) + 9 + strlen(reg) + 1) * sizeof(char));
-        sprintf(tmp, format, data_type_size_op_char(op->op_size), as->last_imm_str, reg);
+        char* tmp = calloc(1, (7 + strlen(as->last_imm_str) + 9 + strlen(regstr) + 1) * sizeof(char));
+        sprintf(tmp, format, data_type_size_op_char(op->op_size), as->last_imm_str, regstr);
         utils_strcat(as_text, tmp);
-        as->last_register = math_registers[as->used_reg+1];
+        as->last_register = reg;
     }
+    free_register(as);
     if (as->last_register == REG_IMM) {
         return as->last_imm_str;
     } else {
@@ -322,11 +363,12 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
     } else if (op->type == ASOP_RETVAL) {
         as->last_register = REG_AX;
     } else if (op->type == ASOP_FREEREG) {
-        if (as->used_reg < 1) {
-            err_enum_out_of_range("used register", as->used_reg);
-        }
-        as->last_register = math_registers[as->used_reg];
-        as->used_reg--;
+        // if (as->used_reg < 1) {
+        //     err_enum_out_of_range("used register", as->used_reg);
+        // }
+        
+        as->last_register = free_register(as);
+        // as->used_reg--;
     } else if (op->type == ASOP_RETNULL) {
         char* temp = calloc(1, (retnull_format_length) * sizeof(char));
         sprintf(temp, retnull_format, as->scope_size + as->visitor_max_extra_stack + 16 - ((as->scope_size + as->visitor_max_extra_stack) % 16));
@@ -342,22 +384,26 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         utils_strcat(as_text, temp);
         as->last_register = REG_AX;
         free(temp);
-    } else if (op->type == ASOP_SETDEST) {
-        as->dest_size++;
-        as->dest_offsets = realloc(as->dest_offsets, as->dest_size * sizeof(size_t));
-        as->dest_locs = realloc(as->dest_locs, as->dest_size * sizeof(size_t));
-        as->dest_offsets[as->dest_size-1] = as->memb_offset;
-        as->dest_locs[as->dest_size-1] = as->mem_loc;
-    } else if (op->type == ASOP_FREEDEST) {
-        as->dest_size -= 1;
-        as->dest_offsets = realloc(as->dest_offsets, as->dest_size * sizeof(size_t));
-        as->dest_locs = realloc(as->dest_locs, as->dest_size * sizeof(size_t));
+    // } else if (op->type == ASOP_SETDEST) {
+    //     as->dest_size++;
+    //     as->dest_offsets = realloc(as->dest_offsets, as->dest_size * sizeof(size_t));
+    //     as->dest_locs = realloc(as->dest_locs, as->dest_size * sizeof(size_t));
+    //     as->dest_offsets[as->dest_size-1] = as->memb_offset;
+    //     as->dest_locs[as->dest_size-1] = as->mem_loc;
+    // } else if (op->type == ASOP_FREEDEST) {
+    //     as->dest_size -= 1;
+    //     as->dest_offsets = realloc(as->dest_offsets, as->dest_size * sizeof(size_t));
+    //     as->dest_locs = realloc(as->dest_locs, as->dest_size * sizeof(size_t));
     } else if (op->type == ASOP_SYMBOLREF) {
         as->last_register = REG_SYMB;
         as->last_imm_str = op->name;
     } else if (op->type == ASOP_SYMBADDRREF) {
         as->last_register = REG_SYMBADDR;
         as->last_imm_str = op->name;
+    } else if (op->type == ASOP_STRINGREF) {
+        as->last_register = REG_SYMBADDR;
+        as->last_imm_str = calloc(1, 6 + size_str_max_length + 1);
+        sprintf(as->last_imm_str, "L_.str%zu", op->string_index);
     } else if (op->type == ASOP_LEA) {
         if (as->last_register == REG_MEM) {
             as->last_register = REG_MEMADDR;
@@ -372,7 +418,8 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         }
     } else if (op->type == ASOP_MEMTOREG && as->last_register == REG_MEM) {
         char* temp = calloc(1, memtoreg_format_min_length + 4);
-        sprintf(temp, memtoreg_format, data_type_size_op_char(op->op_size), as->mem_loc, "%rax");
+        int reg = REG_AX;
+        sprintf(temp, memtoreg_format, data_type_size_op_char(op->op_size), as->mem_loc, data_type_size_register(reg, 8));
         utils_strcat(as_text, temp);
         free(temp);
     } else if (op->type == ASOP_JCOND) {
@@ -396,6 +443,10 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
         as->last_register = REG_MEM;
         as->mem_loc = as->last_stack_offset;
         as->last_stack_offset -= op->op_size;
+    } else if (op->type == ASOP_FREEPTRREG) {
+        as->ptrdest_reg = 0;
+    } else if (op->type == ASOP_SETLASTCMP) {
+        as->last_comparison = op->cmp_type;
     } else {
         char* src;
         if (as->last_register == REG_SYMBADDR && op->type == ASOP_ARGTOREG) {
@@ -414,16 +465,18 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
             as->last_register = REG_CX;
             free(temp);
         } else if (as->last_register == REG_SYMBADDR && op->type == ASOP_NEXTREG) {
-            if (as->used_reg >= sizeof(math_registers)) {
+            int reg = get_nextreg(as);
+            if (reg == REG_VOID) {
+            // if (as->used_reg >= sizeof(math_registers)) {
                 err_reg_full();
             }
-            as->used_reg++;
-            if (math_registers[as->used_reg] != as->last_register) {
+            // as->used_reg++;
+            // if (math_registers[as->used_reg] != as->last_register) {
                 char* temp = calloc(1, (lea_format_min_length + strlen(src)) * sizeof(char));
-                sprintf(temp, lea_format, data_type_size_op_char(op->op_size), as->last_imm_str, data_type_size_register(math_registers[as->used_reg], op->op_size));
+                sprintf(temp, lea_format, data_type_size_op_char(op->op_size), as->last_imm_str, data_type_size_register(reg, op->op_size));
                 utils_strcat(as_text, temp);
                 free(temp);
-            }
+            // }
         } else if (as->last_register == REG_MEMADDR && op->type == ASOP_ARGTOREG) {
             char* reg = data_type_size_register(arg_registers[op->argno], op->op_size);
             char* temp = calloc(1, lea_mem_format_len + strlen(reg));
@@ -438,17 +491,24 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
             free(temp);
         } else if (as->last_register == REG_MEMADDR && op->type == ASOP_MEMTOREG) {
             char* temp = calloc(1, lea_mem_format_len + 4);
-            sprintf(temp, lea_mem_format, as->mem_loc, "%rax");
+            int reg;
+            if (as->ptrdest_reg) {
+                reg = registers[as->used_reg++];
+            } else {
+                reg = as->ptrdest_reg = REG_AX;
+            }
+            sprintf(temp, lea_mem_format, as->mem_loc, data_type_size_register(reg,8));
             utils_strcat(as_text, temp);
             free(temp);
         } else {
             if (as->last_register == REG_SYMBADDR) {
-                char* reg = data_type_size_register(math_registers[as->used_reg+1], op->op_size);
-                char* temp = calloc(1, (lea_format_min_length + strlen(as->last_imm_str) + strlen(reg)) * sizeof(char));
-                sprintf(temp, lea_format, data_type_size_op_char(op->op_size), as->last_imm_str, reg);
+                int reg = get_nextreg(as);
+                char* regstr = data_type_size_register(reg, op->op_size);
+                char* temp = calloc(1, (lea_format_min_length + strlen(as->last_imm_str) + strlen(regstr)) * sizeof(char));
+                sprintf(temp, lea_format, data_type_size_op_char(op->op_size), as->last_imm_str, regstr);
                 utils_strcat(as_text, temp);
                 free(temp);
-                as->last_register = math_registers[as->used_reg+1];
+                as->last_register = reg;
                 src = data_type_size_register(as->last_register, op->op_size);
             } else if (as->last_register == REG_SYMB) {
                 src = calloc(1, (symbref_format_min_length + strlen(as->last_imm_str)));
@@ -486,48 +546,57 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
                 sprintf(temp, return_format, as->scope_size + as->visitor_max_extra_stack + 16 - ((as->scope_size + as->visitor_max_extra_stack) % 16));
                 utils_strcat(as_text, temp);
                 free(temp);
-            } else if (op->type == ASOP_VDEF) {
+            } else if (op->type == ASOP_VMOD) {
                 src = as_ensure_no_mem(as, as_text, op);
                 char* temp = calloc(1, (vdef_format_min_length + strlen(src)) * sizeof(char));
                 sprintf(temp, vdef_format, data_type_size_op_char(op->op_size), src, op->var_location);
                 utils_strcat(as_text, temp);
                 free(temp);
-            } else if (op->type == ASOP_VMOD) {
-                src = as_ensure_no_mem(as, as_text, op);
-                char* dest;
-                if (as->dest_locs[as->dest_size-1] > 0) {
-                    dest = calloc(1, (vref_format_length) * sizeof(char));
-                    sprintf(dest, vref_format, as->dest_locs[as->dest_size-1]);
-                } else {
-                    if (as->last_register == REG_IMM) {
-                        char* tmp = calloc(1, (toreg_format_min_length + strlen(src)) * sizeof(char));
-                        sprintf(tmp, toreg_format, data_type_size_op_char(op->op_size), src, data_type_size_register(math_registers[as->used_reg+1], op->op_size));
-                        utils_strcat(as_text, tmp);
-                        free(tmp);
-                        src = data_type_size_register(math_registers[as->used_reg+1], op->op_size);
-                    }
-                    if (as->dest_offsets[as->dest_size-1] == 0) {
-                        dest = "(%rax)";
-                    } else {
-                        dest = calloc(1, (membref_operand_format_length) * sizeof(char));
-                        sprintf(dest, membref_operand_format, as->dest_offsets[as->dest_size-1]);
-                    }
-                }
-                char* temp = calloc(1, (vmod_format_min_length + strlen(src)) * sizeof(char));
-                sprintf(temp, vmod_format, data_type_size_op_char(op->op_size), src, dest);
+            } else if (op->type == ASOP_PTRMEMBMOD) {
+                // src = as_ensure_no_mem(as, as_text, op);
+                src = data_type_size_register(as->used_registers[as->used_registers_size-1], op->op_size);
+                char* temp = calloc(1, (membmod_format_min_length + strlen(src)) * sizeof(char));
+                sprintf(temp, membmod_format, data_type_size_op_char(op->op_size), src, op->memb_offset, data_type_size_register(as->ptrdest_reg, 8));
                 utils_strcat(as_text, temp);
                 free(temp);
+            // } else if (op->type == ASOP_VMOD) {
+            //     src = as_ensure_no_mem(as, as_text, op);
+            //     char* dest;
+            //     if (as->dest_locs[as->dest_size-1] > 0) {
+            //         dest = calloc(1, (vref_format_length) * sizeof(char));
+            //         sprintf(dest, vref_format, as->dest_locs[as->dest_size-1]);
+            //     } else {
+            //         if (as->last_register == REG_IMM) {
+            //             char* tmp = calloc(1, (toreg_format_min_length + strlen(src)) * sizeof(char));
+            //             sprintf(tmp, toreg_format, data_type_size_op_char(op->op_size), src, data_type_size_register(math_registers[as->used_reg+1], op->op_size));
+            //             utils_strcat(as_text, tmp);
+            //             free(tmp);
+            //             src = data_type_size_register(math_registers[as->used_reg+1], op->op_size);
+            //         }
+            //         if (as->dest_offsets[as->dest_size-1] == 0) {
+            //             dest = "(%rax)";
+            //         } else {
+            //             dest = calloc(1, (membref_operand_format_length) * sizeof(char));
+            //             sprintf(dest, membref_operand_format, as->dest_offsets[as->dest_size-1]);
+            //         }
+            //     }
+            //     char* temp = calloc(1, (vmod_format_min_length + strlen(src)) * sizeof(char));
+            //     sprintf(temp, vmod_format, data_type_size_op_char(op->op_size), src, dest);
+            //     utils_strcat(as_text, temp);
+            //     free(temp);
             } else if (op->type == ASOP_NEXTREG) {
-                if (as->used_reg >= sizeof(math_registers)) {
+                int reg = get_nextreg(as);
+                if (reg == REG_VOID) {
+                // if (as->used_reg >= sizeof(math_registers)) {
                     err_reg_full();
                 }
-                as->used_reg++;
-                if (math_registers[as->used_reg] != as->last_register) {
+                // as->used_reg++;
+                // if (math_registers[as->used_reg] != as->last_register) {
                     char* temp = calloc(1, (toreg_format_min_length + strlen(src)) * sizeof(char));
-                    sprintf(temp, toreg_format, data_type_size_op_char(op->op_size), src, data_type_size_register(math_registers[as->used_reg], op->op_size));
+                    sprintf(temp, toreg_format, data_type_size_op_char(op->op_size), src, data_type_size_register(reg, op->op_size));
                     utils_strcat(as_text, temp);
                     free(temp);
-                }
+                // }
             } else if (op->type == ASOP_BINOP) {
                 as_compile_binop(as, as_text, op, src);
             } else if (op->type == ASOP_UNOP) {
@@ -541,6 +610,22 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
                 as->last_stack_offset += op->op_size;
                 sprintf(temp, push_format, data_type_size_op_char(op->op_size), src, as->last_stack_offset);
                 utils_strcat(as_text, temp);
+            } else if (op->type == ASOP_PTRTOREG) {
+                as->ptrdest_reg = get_nextreg(as);
+                free_register(as);
+                char* reg = data_type_size_register(as->ptrdest_reg, 8);
+                char* temp = calloc(1, (toreg_format_min_length + strlen(src) + strlen(reg)));
+                sprintf(temp, toreg_format, data_type_size_op_char(8), src, reg);
+                utils_strcat(as_text, temp);
+                free(temp);
+                free(reg);
+            } else if (op->type == ASOP_LOCALMEMBMOD) {
+                char* reg = data_type_size_register(as->used_registers[as->used_registers_size-1], op->op_size);
+                char* temp = calloc(1, (toreg_format_min_length + strlen(src) + strlen(reg)));
+                sprintf(temp, toreg_format, data_type_size_op_char(op->op_size), reg, src);
+                utils_strcat(as_text, temp);
+                free(temp);
+                free(reg);
             } else {
                 err_unexpected_as_op(op);
             }
@@ -550,30 +635,32 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
 void as_compile_binop(as_function_T* as, char** as_text, as_op_T* op, char* src) {
     char* instr;
     if (op->data_type == ASTYPE_INT) {
-        if (op->binop_type == BINOP_PLUS) {
+        if (op->binop_type == ASBINOP_ADD) {
             instr = "add";
-        } else if (op->binop_type == BINOP_MINUS) {
+        } else if (op->binop_type == ASBINOP_SUB) {
             instr = "sub";
-        } else if (op->binop_type == BINOP_TIMES) {
+        } else if (op->binop_type == ASBINOP_IMUL) {
             instr = "imul";
-        } else if (op->binop_type == BINOP_LET) {
+        } else if (op->binop_type == ASBINOP_CMP) {
             instr = "cmp";
-            as->last_comparison = COMP_L;
-        } else if (op->binop_type == BINOP_GRT) {
-            instr = "cmp";
-            as->last_comparison = COMP_G;
-        } else if (op->binop_type == BINOP_LEEQ) {
-            instr = "cmp";
-            as->last_comparison = COMP_LE;
-        } else if (op->binop_type == BINOP_GREQ) {
-            instr = "cmp";
-            as->last_comparison = COMP_GE;
-        } else if (op->binop_type == BINOP_EQEQ) {
-            instr = "cmp";
-            as->last_comparison = COMP_E;
-        } else if (op->binop_type == BINOP_NEQ) {
-            instr = "cmp";
-            as->last_comparison = COMP_NE;
+        // } else if (op->binop_type == BINOP_LET) {
+        //     instr = "cmp";
+        //     as->last_comparison = COMP_L;
+        // } else if (op->binop_type == BINOP_GRT) {
+        //     instr = "cmp";
+        //     as->last_comparison = COMP_G;
+        // } else if (op->binop_type == BINOP_LEEQ) {
+        //     instr = "cmp";
+        //     as->last_comparison = COMP_LE;
+        // } else if (op->binop_type == BINOP_GREQ) {
+        //     instr = "cmp";
+        //     as->last_comparison = COMP_GE;
+        // } else if (op->binop_type == BINOP_EQEQ) {
+        //     instr = "cmp";
+        //     as->last_comparison = COMP_E;
+        // } else if (op->binop_type == BINOP_NEQ) {
+        //     instr = "cmp";
+        //     as->last_comparison = COMP_NE;
         } else {
             return err_unexpected_as_op(op);
         }
@@ -581,7 +668,7 @@ void as_compile_binop(as_function_T* as, char** as_text, as_op_T* op, char* src)
         return err_unexpected_as_op(op);
     }
     char* temp = calloc(1, (binop_format_min_length + strlen(instr) + strlen(src)));
-    char* reg = data_type_size_register(math_registers[as->used_reg], op->op_size);
+    char* reg = data_type_size_register(as->used_registers[as->used_registers_size-1], op->op_size);
     sprintf(temp, binop_format, instr, data_type_size_op_char(op->op_size), src, reg);
     utils_strcat(as_text, temp);
 }
@@ -611,19 +698,13 @@ char* as_op_type_string(enum op_type type) {
         case ASOP_RETURN: return "return";
         case ASOP_RETVAL: return "retval";
         case ASOP_SETLASTIMM: return "setlastimm";
-        case ASOP_VDEF: return "vdef";
         case ASOP_VMOD: return "vmod";
         case ASOP_VREF: return "vref";
         case ASOP_RETNULL: return "retnull";
         case ASOP_NEW: return "new";
         case ASOP_MEMBREF: return "membref"; break;
-        case ASOP_SETDEST: return "setdest"; break;
-        case ASOP_FREEDEST: return "freedest"; break;
         case ASOP_SYMBOLREF: return "symbref"; break;
         case ASOP_SYMBADDRREF: return "symbaddrref"; break;
-        // case ASOP_OPENIF: return "openif"; break;
-        // case ASOP_CLOSEIF: return "closeif"; break;
-        // case ASOP_ELSE: return "else"; break;
         case ASOP_UNOP: return "unop"; break;
         case ASOP_LEA: return "lea"; break;
         case ASOP_MEMTOREG: return "memtoreg"; break;
@@ -634,6 +715,12 @@ char* as_op_type_string(enum op_type type) {
         case ASOP_JCOND: return "jcond"; break;
         case ASOP_JMP: return "jmp"; break;
         case ASOP_BB: return "bb"; break;
+        case ASOP_STRINGREF: return "stringref"; break;
+        case ASOP_PTRMEMBMOD: return "ptrmembmod"; break;
+        case ASOP_SETLASTCMP: return "setlastcmp"; break;
+        case ASOP_FREEPTRREG: return "freeptrreg"; break;
+        case ASOP_PTRTOREG: return "ptrtoreg"; break;
+        case ASOP_LOCALMEMBMOD: return "localmembmod"; break;
         // default: return "unknown"; break;
     }
 }
