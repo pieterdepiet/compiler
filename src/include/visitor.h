@@ -13,7 +13,7 @@ typedef struct VISITOR_STRUCT {
     as_file_T* as_file;
 } visitor_T;
 
-visitor_T* init_visitor(as_file_T* as);
+visitor_T* init_visitor(as_file_T* as, global_T* scope);
 data_type_T* visitor_visit(scope_T* scope, AST_T* node, data_type_T* suggestion);
 data_type_T* visitor_visit_global(global_T* scope, AST_T* root);
 data_type_T* visitor_visit_binop(scope_T* scope, AST_T* node, data_type_T* hint);
