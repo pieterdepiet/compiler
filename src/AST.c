@@ -83,9 +83,7 @@ ast_arglist_T* init_ast_arglist() {
 }
 
 enum expr_level ast_binop_level(int binop_type) {
-    if (binop_type <= BINOP_MEMBER) {
-        return EXPR_MEMBER;
-    } else if (binop_type <= BINOP_DIV) {
+    if (binop_type <= BINOP_DIV) {
         return EXPR_MULDIV;
     } else if (binop_type <= BINOP_MINUS) {
         return EXPR_TERM;
@@ -121,7 +119,6 @@ int ast_is_primitive(AST_T* node) {
 }
 int ast_binop_is_bool(int binop_type) {
     switch (binop_type) {
-        case BINOP_MEMBER:
         case BINOP_TIMES:
         case BINOP_DIV:
         case BINOP_PLUS:

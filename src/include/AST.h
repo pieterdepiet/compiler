@@ -129,7 +129,6 @@ typedef struct AST_STRUCT {
             struct AST_STRUCT* left_hand;
             struct AST_STRUCT* right_hand;
             enum binop_type {
-                BINOP_MEMBER,
                 BINOP_TIMES,
                 BINOP_DIV,
                 BINOP_PLUS,
