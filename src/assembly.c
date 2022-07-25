@@ -70,6 +70,10 @@ const char* bb_format = "LBB%lu.%u:\n";
 const size_t bb_len = 6 + 2 * size_str_max_length + 1;
 const char* membmod_format =   "  mov%c %s, %lu(%s)\n";
 const size_t membmod_format_min_length = 17 + size_str_max_length + 1;
+const char* indexmod_format = "  mov%c %s, %s\n";
+const size_t indexmode_format_min_length = 10 + 1;
+const char* index_format = "(%s,%s,%hhd)";
+const size_t index_format_length = 4 + size_str_max_length + 1;
 
 
 int arg_registers[] = {REG_DI, REG_SI, REG_DX, REG_CX};
@@ -477,6 +481,22 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
                 utils_strcat(as_text, temp);
                 free(temp);
             // }
+            as->last_register = reg;
+        } else if (as->last_register == REG_MEMADDR && op->type == ASOP_NEXTREG) {
+            int reg = get_nextreg(as);
+            if (reg == REG_VOID) {
+            // if (as->used_reg >= sizeof(math_registers)) {
+                err_reg_full();
+            }
+            // as->used_reg++;
+            char* regstr = data_type_size_register(reg, 8);
+            // if (math_registers[as->used_reg] != as->last_register) {
+                char* temp = calloc(1, (lea_mem_format_len + strlen(regstr)) * sizeof(char));
+                sprintf(temp, lea_mem_format, as->mem_loc, regstr);
+                utils_strcat(as_text, temp);
+                free(temp);
+            // }
+            as->last_register = reg;
         } else if (as->last_register == REG_MEMADDR && op->type == ASOP_ARGTOREG) {
             char* reg = data_type_size_register(arg_registers[op->argno], op->op_size);
             char* temp = calloc(1, lea_mem_format_len + strlen(reg));
@@ -530,6 +550,11 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
                     sprintf(src, membref_operand_format, as->memb_offset);
                 }
                 as->memb_offset = -1;
+            } else if (as->last_register == REG_INDEX) {
+                char* arrreg = data_type_size_register(as->used_registers[as->used_registers_size-2], 8);
+                char* ireg = data_type_size_register(as->used_registers[as->used_registers_size-1], 8);
+                src = calloc(1, index_format_length + strlen(arrreg) + strlen(ireg));
+                sprintf(src, index_format, arrreg, ireg, op->op_size);
             } else {
                 src = data_type_size_register(as->last_register, op->op_size);
             }
@@ -626,6 +651,22 @@ void as_compile_operation(as_function_T* as, char** as_text, as_op_T* op) {
                 utils_strcat(as_text, temp);
                 free(temp);
                 free(reg);
+            } else if (op->type == ASOP_INDEXMOD) {
+                char* valreg = data_type_size_register(as->used_registers[as->used_registers_size-3], op->op_size);
+                char* arrreg = data_type_size_register(as->used_registers[as->used_registers_size-2], 8);
+                char* ireg = data_type_size_register(as->used_registers[as->used_registers_size-1], 8);
+                char* dest = calloc(1, (index_format_length + strlen(arrreg) + strlen(ireg)) * sizeof(char));
+                sprintf(dest, index_format, arrreg, ireg, op->op_size);
+                char* temp = calloc(1, (indexmode_format_min_length + strlen(valreg) + strlen(dest)) * sizeof(char));
+                sprintf(temp, indexmod_format, data_type_size_op_char(op->op_size), valreg, dest);
+                utils_strcat(as_text, temp);
+                free(valreg);
+                free(arrreg);
+                free(ireg);
+                free(dest);
+                free(temp);
+            } else if (op->type == ASOP_INDEX) {
+                as->last_register = REG_INDEX;
             } else {
                 err_unexpected_as_op(op);
             }
@@ -721,6 +762,8 @@ char* as_op_type_string(enum op_type type) {
         case ASOP_FREEPTRREG: return "freeptrreg"; break;
         case ASOP_PTRTOREG: return "ptrtoreg"; break;
         case ASOP_LOCALMEMBMOD: return "localmembmod"; break;
+        case ASOP_INDEX: return "index"; break;
+        case ASOP_INDEXMOD: return "indexmod"; break;
         // default: return "unknown"; break;
     }
 }

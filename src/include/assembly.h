@@ -63,7 +63,9 @@ typedef struct ASSEMBLY_OPERATION_STRUCT {
         ASOP_SETLASTCMP,
         ASOP_FREEPTRREG,
         ASOP_PTRTOREG,
-        ASOP_LOCALMEMBMOD
+        ASOP_LOCALMEMBMOD,
+        ASOP_INDEX,
+        ASOP_INDEXMOD
     } type;
     char* name;
     size_t var_location;
@@ -108,6 +110,7 @@ typedef struct ASSEMBLY_FUNCTION_STRUCT {
         REG_MEMBADDR,
         REG_SYMB,
         REG_SYMBADDR,
+        REG_INDEX,
         REG_AX,
         REG_BX,
         REG_CX,
@@ -127,9 +130,6 @@ typedef struct ASSEMBLY_FUNCTION_STRUCT {
     int* used_registers;
     size_t used_registers_size;
     int ptrdest_reg;
-    size_t* dest_locs;
-    size_t* dest_offsets;
-    size_t dest_size;
     size_t function_no;
     size_t last_bb;
     char* zeroreg;
