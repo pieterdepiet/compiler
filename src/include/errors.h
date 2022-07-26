@@ -7,7 +7,7 @@
 
 void err_unexpected_token(parser_T* parser, int expected);
 void err_unexpected_node(AST_T* node);
-void err_unknown_type(char* type_name, AST_T* node);
+void err_unknown_type(AST_T* ast_type, AST_T* node);
 void err_undefined_variable(char* variable_name, AST_T* node);
 void err_undefined_function(char* function_name, AST_T* node);
 void err_undefined_member(char* parent_name, char* member_name);

@@ -11,8 +11,8 @@ void err_unexpected_node(AST_T* node) {
     printf(ErrorStart "unexpected node with type %s [%zu:%zu]\n", ast_node_type_string(node), node->lineno, node->charno);
     exit(1);
 }
-void err_unknown_type(char* type_name, AST_T* node) {
-    printf(ErrorStart "type %s not defined [%zu:%zu]\n", type_name, node->lineno, node->charno);
+void err_unknown_type(AST_T* ast_type, AST_T* node) {
+    printf(ErrorStart "type %s not defined [%zu:%zu]\n", ast_type->type_fullname, node->lineno, node->charno);
     exit(1);
 }
 void err_undefined_variable(char* variable_name, AST_T* node) {
