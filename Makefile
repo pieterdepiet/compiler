@@ -13,16 +13,10 @@ $(exec): $(objects) $(lib) $(makefile)
 %.o: %.c $(headers) $(makefile)
 	gcc -c $(flags) $< -o $@
 
-as: $(sources:.c=.s) $(makefile)
-
-%.s: %.c $(headers) $(makefile)
-	gcc -S -g $(flags) $< -o $@
-
-aslink:
-	gcc src/*.s $(flags) -o $(exec)
-
 lib: $(lib)
-	gcc -c stdlib/lib.s -o stdlib/lib.o
+	gcc -c stdlib/libas.s -o stdlib/libs.o
+	gcc -c stdlib/lib.c -o stdlib/libc.o
+	ld -r stdlib/libs.o stdlib/libc.o -o stdlib/lib.o
 
 clean:
 	-rm *.out
