@@ -26,17 +26,35 @@ visitor_T* init_visitor(as_file_T* as_file, global_T* scope) {
     
     return visitor;
 }
-data_type_T* get_data_type(scope_T* scope, char* name) {
-    if (name == (void*) 0) {
+data_type_T* get_data_type(global_T* global, AST_T* ast_type) {
+    if (ast_type == (void*) 0) {
         return (void*) 0;
-    } else if (utils_strcmp(name, "Int")) {
-        return scope->visitor->int_type;
-    } else if (utils_strcmp(name, "String")) {
-        return scope->visitor->string_type;
+    } else if (ast_type->type_array_count == 0) {
+        if (utils_strcmp(ast_type->type_base, "Int")) {
+            return global->visitor->int_type;
+        } else if (utils_strcmp(ast_type->type_base, "String")) {
+            return global->visitor->string_type;
+        } else {
+            return scope_get_typeg(global, ast_type->type_base);
+        }
     } else {
-        data_type_T* data_type = scope_get_type(scope, name);
-        if (data_type) {
-            return data_type;
+        data_type_T* data_type = init_data_type(TYPE_ARRAY, ast_type->type_fullname);
+        data_type->ptr_type = scope_get_typeg(global, ast_type->type_base);
+        data_type->array_count = ast_type->type_array_count;
+        data_type->array_sizes = calloc(1, data_type->array_count * sizeof(size_t));
+        for (size_t i = 0; i < data_type->array_count; i++) {
+            if (ast_type->type_array_sizes[i] != (void*) 0 && ast_type->type_array_sizes[i]->type == AST_INT) {
+                if (data_type->primitive_size == 0) {
+                    data_type->primitive_size = ast_type->type_array_sizes[i]->int_value * sizeof(int);
+                } else {
+                    data_type->primitive_size *= ast_type->type_array_sizes[i]->int_value;
+                }
+                data_type->array_sizes[i] = ast_type->type_array_sizes[i]->int_value;
+            }
+        }
+        // data_type_T* data_type = scope_get_type(scope, name);
+        if (data_type->ptr_type) {
+            return init_pointer_to(data_type);
         } else {
             return (void*) 0;
         }
@@ -107,10 +125,10 @@ data_type_T* visitor_visit_global(global_T* global_scope, AST_T* root) {
     for (size_t i = 0; i < root->compound_size; i++) {
         // printf("Visit global node %s\n", ast_node_type_string(root->compound_value[i]));
         if (root->compound_value[i]->type == AST_VARIABLE_DEFINITION) {
-            data_type_T* data_type = scope_get_typeg(global_scope, root->compound_value[i]->variable_definition_type);
-            if (!data_type) {
-                err_unknown_type(root->compound_value[i]->variable_definition_type, root->compound_value[i]);
-            }
+            // data_type_T* data_type = scope_get_typeg(global_scope, root->compound_value[i]->variable_definition_type);
+            // if (!data_type) {
+            //     err_unknown_type(root->compound_value[i]->variable_definition_type, root->compound_value[i]);
+            // }
             // if (node_to_data_type(global_scope, data_type, root->compound_value[i]->variable_definition_value) != 0) {
                 // err_node_not_convertable_to_data_type(root->compound_value[i]->variable_definition_value, data_type);
             // }
@@ -169,11 +187,11 @@ fspec_T* visitor_visit_function_definition(scope_T* scope, AST_T* node) {
     if (node->function_definition_return_type == (void*) 0) {
         scope->return_type = scope->visitor->null_type;
     } else {
-        scope->return_type = get_data_type(scope, node->function_definition_return_type);
+        scope->return_type = get_data_type(scope->global, node->function_definition_return_type);
     }
     fspec_T* fspec = init_fspec(scope->return_type);
     for (size_t i = 0; i < node->function_definition_args->unnamed_size; i++) {
-        data_type_T* arg_type = get_data_type(scope, node->function_definition_args->unnamed_types[i]);
+        data_type_T* arg_type = get_data_type(scope->global, node->function_definition_args->unnamed_types[i]);
         scope_add_variable(scope, node->function_definition_args->unnamed_names[i], arg_type);
         fspec_add_unnamed_arg(fspec, arg_type);
         as_op_T* as_op = init_as_op(ASOP_ARGTOSTACK);
@@ -182,12 +200,12 @@ fspec_T* visitor_visit_function_definition(scope_T* scope, AST_T* node) {
         as_op->op_size = arg_type->primitive_size;
         as_op->var_location = scope_get_variable_relative_location(scope, node->function_definition_args->unnamed_names[i]);
         if (as_op->var_location < 0) {
-            err_undefined_variable(node->function_definition_args->unnamed_types[i], node);
+            err_undefined_variable(node->function_definition_args->unnamed_names[i], node);
         }
         as_add_op_to_function(scope->as_function, as_op);
     }
     for (size_t i = 0; i < node->function_definition_args->named_size; i++) {
-        data_type_T* arg_type = get_data_type(scope, node->function_definition_args->named_types[i]);
+        data_type_T* arg_type = get_data_type(scope->global, node->function_definition_args->named_types[i]);
         scope_add_variable(scope, node->function_definition_args->named_inside_names[i], arg_type);
         list_add(&fspec->named_types, &fspec->named_length, arg_type);
         fspec->named_length--;
@@ -254,6 +272,36 @@ data_type_T* visitor_visit_return(scope_T* scope, AST_T* node, data_type_T* retu
         return scope->visitor->null_type;
     }
 }
+data_type_T* visitor_visit_index(scope_T* scope, AST_T* node) {
+    data_type_T* array_type = visitor_visit(scope, node->left_hand, (void*) 0);
+    if (array_type->primitive_type == TYPE_ARRAY) {
+        as_op_T* as_op = init_as_op(ASOP_LEA);
+        as_add_op_to_function(scope->as_function, as_op);
+    } else if (!(array_type->primitive_type == TYPE_PTR && array_type->ptr_type->primitive_type == TYPE_ARRAY)) {
+        printf("%d\n", array_type->primitive_type);
+        err_not_implemented("index on non-array");
+    }
+    as_op_T* as_op = init_as_op(ASOP_NEXTREG);
+    as_op->op_size = 8;
+    as_add_op_to_function(scope->as_function, as_op);
+    data_type_T* index_type = visitor_visit(scope, node->right_hand, (void*) 0);
+    if (index_type != scope->visitor->int_type) {
+        err_conflicting_types(index_type, scope->visitor->int_type, node->right_hand);
+    }
+    as_op = init_as_op(ASOP_NEXTREG);
+    as_op->op_size = index_type->primitive_size;
+    as_add_op_to_function(scope->as_function, as_op);
+    as_op = init_as_op(ASOP_INDEX);
+    as_op->op_size = array_type->ptr_type->primitive_size;
+    as_add_op_to_function(scope->as_function, as_op);
+    // as_op = init_as_op(ASOP_FREEREG);
+    // as_add_op_to_function(scope->as_function, as_op);
+    if (array_type->primitive_type == TYPE_ARRAY) {
+        return array_type->ptr_type;
+    } else {
+        return array_type->ptr_type->ptr_type;
+    }
+}
 int is_signed(int primitive_type) {
     switch (primitive_type) {
         case TYPE_UCHAR: case TYPE_USHORT: case TYPE_UINT: case TYPE_ULONG: return 0; break;
@@ -263,6 +311,8 @@ int is_signed(int primitive_type) {
 data_type_T* visitor_visit_binop(scope_T* scope, AST_T* node, data_type_T* hint) {
     if (node->binop_type == BINOP_ASSIGN) {
         return visitor_visit_variable_assignment(scope, node);
+    } else if (node->binop_type == BINOP_INDEX) {
+        return visitor_visit_index(scope, node);
     }
     data_type_T* left_hand_type = visitor_visit(scope, node->left_hand, hint);
     as_op_T* as_op = init_as_op(ASOP_NEXTREG);
@@ -407,8 +457,7 @@ data_type_T* visitor_visit_string(scope_T* scope, AST_T* node) {
 }
 data_type_T* visitor_visit_variable_definition(scope_T* scope, AST_T* node) {
     if (node->variable_definition_type) {
-        data_type_T* definition_type = scope_get_type(scope, node->variable_definition_type);
-        
+        data_type_T* definition_type = get_data_type(scope->global, node->variable_definition_type);
         if (definition_type==(void*) 0) {
             err_unknown_type(node->variable_definition_type, node);
         }
@@ -536,7 +585,7 @@ data_type_T* visitor_visit_variable_assignment(scope_T* scope, AST_T* node) {
     data_type_T* value_type = visitor_visit(scope, node->right_hand, (void*) 0);
     data_type_T* variable_type = (void*) 0;
     if (node->left_hand->type == AST_VARIABLE) {
-        variable_type = scope_get_type(scope, node->left_hand->variable_name);
+        variable_type = scope_get_variable(scope, node->left_hand->variable_name);
         if (variable_type != value_type) {
             err_conflicting_types(variable_type, value_type, node);
         }
@@ -591,6 +640,44 @@ data_type_T* visitor_visit_variable_assignment(scope_T* scope, AST_T* node) {
         as_op = init_as_op(ASOP_FREEREG);
         as_add_op_to_function(scope->as_function, as_op);
         return variable_type;
+    } else if (node->left_hand->type == AST_BINOP && node->left_hand->binop_type == BINOP_INDEX) {
+        as_op_T* as_op = init_as_op(ASOP_NEXTREG);
+        as_op->op_size = value_type->primitive_size;
+        as_add_op_to_function(scope->as_function, as_op);
+        data_type_T* array_type = visitor_visit(scope, node->left_hand->left_hand, (void*) 0);
+        data_type_T* valtype;
+        if (array_type->primitive_type == TYPE_ARRAY) {
+            as_add_op_to_function(scope->as_function, as_op);
+            as_op = init_as_op(ASOP_LEA);
+            valtype = array_type->ptr_type;
+        } else if (array_type->primitive_type == TYPE_PTR && array_type->ptr_type->primitive_type == TYPE_ARRAY) {
+            valtype = array_type->ptr_type->ptr_type;
+        } else {
+            err_not_implemented("Index on non-array");
+            return (void*) 0;
+        }
+        if (valtype != value_type) {
+            err_conflicting_types(value_type, array_type->ptr_type, node);
+        }
+        as_op = init_as_op(ASOP_NEXTREG);
+        as_op->op_size = value_type->primitive_size;
+        as_add_op_to_function(scope->as_function, as_op);
+        data_type_T* index_type = visitor_visit(scope, node->left_hand->right_hand, scope->visitor->int_type);
+        if (index_type->primitive_type != TYPE_INT) {
+            err_conflicting_types(index_type, scope->visitor->int_type, node->left_hand->right_hand);
+        }
+        as_op = init_as_op(ASOP_NEXTREG);
+        as_op->op_size = 8;
+        as_add_op_to_function(scope->as_function, as_op);
+        as_op = init_as_op(ASOP_INDEXMOD);
+        as_op->op_size = value_type->primitive_size;
+        as_add_op_to_function(scope->as_function, as_op);
+        as_op = init_as_op(ASOP_FREEREG);
+        as_add_op_to_function(scope->as_function, as_op);
+        as_op = init_as_op(ASOP_FREEREG);
+        as_add_op_to_function(scope->as_function, as_op);
+    } else {
+        err_unexpected_node(node->left_hand);
     }
 
     return variable_type;
@@ -818,7 +905,8 @@ data_type_T* visitor_visit_class_definition(global_T* scope, AST_T* node) {
     for (size_t i = 0; i < node->class_prototype_names_size; i++) {
         data_type_T* prototype_type = scope_get_typeg(scope, node->class_prototype_names[i]);
         if (prototype_type == (void*) 0) {
-            err_unknown_type(node->class_prototype_names[i], node);
+            // err_unknown_type(node->class_prototype_names[i], node);
+            err_not_implemented("prototypes");
         }
         list_add(&data_type->class_prototypes, &data_type->class_prototypes_size, prototype_type);
     }
@@ -826,7 +914,7 @@ data_type_T* visitor_visit_class_definition(global_T* scope, AST_T* node) {
         AST_T* def = node->class_members[i];
         // printf("Class member type %s\n", ast_node_type_string(def));
         if (def->type == AST_VARIABLE_DEFINITION) {
-            data_type_T* member_type = scope_get_typeg(scope, def->variable_definition_type);
+            data_type_T* member_type = get_data_type(scope, def->variable_definition_type);
             if (def->variable_definition_is_static == 1) {
                 list_add(&data_type->static_member_types, &data_type->static_members_size, member_type);
                 data_type->static_members_size--;
@@ -906,7 +994,7 @@ data_type_T* visitor_visit_class_definition(global_T* scope, AST_T* node) {
             as_add_op_to_function(as_function, as_op);
 
             for (size_t j = 0; j < def->constructor_args->unnamed_size; j++) {
-                data_type_T* arg_type = scope_get_typeg(scope, def->constructor_args->unnamed_types[j]);
+                data_type_T* arg_type = get_data_type(scope, def->constructor_args->unnamed_types[j]);
                 if (arg_type->primitive_type == TYPE_STRUCT) {
                     arg_type = init_pointer_to(arg_type);
                 }
@@ -923,7 +1011,7 @@ data_type_T* visitor_visit_class_definition(global_T* scope, AST_T* node) {
                 free(arg_name);
             }
             for (size_t j = 0; j < def->constructor_args->named_size; j++) {
-                data_type_T* arg_type = scope_get_typeg(scope, def->constructor_args->named_types[j]);
+                data_type_T* arg_type = get_data_type(scope, def->constructor_args->named_types[j]);
                 if (arg_type->primitive_type == TYPE_STRUCT) {
                     arg_type = init_pointer_to(arg_type);
                 }
