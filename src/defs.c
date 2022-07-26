@@ -30,6 +30,17 @@ void defs_define_io(global_T* scope, data_type_T* null_type) {
     fspec->name = "prints";
     fspec_add_unnamed_arg(fspec, scope_get_typeg(scope, "String"));
     defs_define(scope, fspec);
+
+    fspec = init_fspec(scope_get_typeg(scope, "String"));
+    fspec->symbol_name = "_reads";
+    fspec->name = "input";
+    defs_define(scope, fspec);
+
+    fspec = init_fspec(scope_get_typeg(scope, "String"));
+    fspec->symbol_name = "_readsmsg";
+    fspec->name = "input";
+    fspec_add_unnamed_arg(fspec, fspec->return_type);
+    defs_define(scope, fspec);
 }
 void defs_define_int(global_T* scope) {
     data_type_T* int_type = init_data_type(TYPE_INT, "Int");
