@@ -17,7 +17,8 @@ typedef struct DATA_TYPE_STRUCT {
         TYPE_BOOL,
         TYPE_STRING,
         TYPE_STRUCT,
-        TYPE_PTR
+        TYPE_PTR,
+        TYPE_ARRAY
     } primitive_type;
     struct DATA_TYPE_STRUCT** class_prototypes;
     size_t class_prototypes_size;
@@ -38,6 +39,9 @@ typedef struct DATA_TYPE_STRUCT {
 
     struct DATA_TYPE_STRUCT* ptr_type;
     
+    size_t array_count;
+    size_t* array_sizes;
+
     char* type_name;
     size_t primitive_size;
     struct {
