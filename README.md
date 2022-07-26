@@ -2,16 +2,19 @@
 Experimental project to learn assembly and other low-level stuff.
 
 ## Features:
-- Integers
+- Integers with math
 - Strings (very limited)
 - Type safety
-- Function definitions with return values and named arguments
-- Function calls
-- Integer addition/substraction
+- Functions
+    - Return values
+    - Named parameters
+    - Overloading
 - If, else if, else and comparisons
-- Limited object orientation
+- Some object orientation
+- Intermediate representation, universal file format for half-compiled code
+- Arrays, only local definition, can access and modify local array and pointers like argv
 ## In progress
-- Implement all comparisons
+- Arrays
 ## TODO:
 - [ ] Add import
 - [x] Implement classes
@@ -21,11 +24,7 @@ Experimental project to learn assembly and other low-level stuff.
     - [x] Implement local structures
 - [x] Add strings
     - [ ] Finish strings
-- [x] Add conditions
-    - [x] If, else if, else
-    - [x] Less than
-    - [x] All comparisons
-- [ ] Add arrays
+- [x] Add arrays
 - [ ] More math
 - [ ] More number types
 - [ ] Think of a name for the language and an file extension
