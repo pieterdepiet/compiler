@@ -8,6 +8,7 @@
 #include "include/visitor.h"
 #include "include/intrep.h"
 #include "include/assembly.h"
+#include "include/previsit.h"
 
 int invocation_toobj(char* buf, size_t size, char* asname, char* objname) {
     FILE* f = fopen(asname, "w");
@@ -92,6 +93,10 @@ int invocation_entry(int argc, char** argv) {
                 AST_T* root = parser_parse(parser); // Get the root ast node
                 printf(
                     "|    Parsed    |\n"
+                    "+--------------+\n");
+                root = previsit(root);
+                printf(
+                    "|  Previsited  |\n"
                     "+--------------+\n");
                 visitor_T* visitor = init_visitor(as_file, scope); // Visitor: visits AST, makes a list of assembly operations and does things like type checking
                 visitor_visit_global(visitor->global_scope, root); // Visit root ast
