@@ -6,11 +6,11 @@
 
 typedef struct AST_ARGLIST_STRUCT {
     char** unnamed_names;
-    char** unnamed_types;
+    struct AST_STRUCT** unnamed_types;
     size_t unnamed_size;
     char** named_public_names;
     char** named_inside_names;
-    char** named_types;
+    struct AST_STRUCT** named_types;
     size_t named_size;
 } ast_arglist_T;
 
@@ -49,7 +49,9 @@ typedef struct AST_STRUCT {
 
         AST_MEMBER, // 21
         AST_NEW, // 22
-        AST_CONSTRUCTOR // 23
+        AST_CONSTRUCTOR, // 23
+        
+        AST_TYPE
     } type;
     size_t lineno;
     size_t charno;
@@ -61,7 +63,7 @@ typedef struct AST_STRUCT {
     union {
         struct {
             // AST_VARIABLE_DEFINITION
-            char* variable_definition_type;
+            struct AST_STRUCT* variable_definition_type;
             char* variable_definition_name;
             struct AST_STRUCT* variable_definition_value;
             char variable_definition_is_static;
@@ -85,7 +87,7 @@ typedef struct AST_STRUCT {
             char* function_definition_name;
             struct AST_STRUCT* function_definition_body;
             ast_arglist_T* function_definition_args;
-            char* function_definition_return_type;
+            struct AST_STRUCT* function_definition_return_type;
             char function_definition_is_static;
             char function_definition_is_private;
         };
@@ -129,6 +131,7 @@ typedef struct AST_STRUCT {
             struct AST_STRUCT* left_hand;
             struct AST_STRUCT* right_hand;
             enum binop_type {
+                BINOP_INDEX,
                 BINOP_TIMES,
                 BINOP_DIV,
                 BINOP_PLUS,
@@ -215,6 +218,13 @@ typedef struct AST_STRUCT {
             struct AST_STRUCT* constructor_function_body;
             ast_arglist_T* constructor_args;
         };
+        struct {
+            // AST_TYPE
+            char* type_base;
+            size_t type_array_count;
+            struct AST_STRUCT** type_array_sizes;
+            char* type_fullname;
+        };
     };
 } AST_T;
 struct PARSER_STRUCT;
@@ -229,6 +239,8 @@ AST_T* ast_get_copy(AST_T* source);
 enum expr_level {
     EXPR_SINGLE_THING,
     EXPR_MEMBER,
+    EXPR_INDEX,
+    EXPR_TYPE,
     EXPR_UNOP,
     EXPR_MULDIV,
     EXPR_TERM,
@@ -242,4 +254,5 @@ enum expr_level ast_expr_level(AST_T* node);
 int ast_is_primitive(AST_T* node);
 char* ast_node_type_string(AST_T* node);
 int ast_binop_is_bool(int binop_type);
+void ast_release(AST_T* node);
 #endif

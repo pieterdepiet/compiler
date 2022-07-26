@@ -83,7 +83,9 @@ ast_arglist_T* init_ast_arglist() {
 }
 
 enum expr_level ast_binop_level(int binop_type) {
-    if (binop_type <= BINOP_DIV) {
+    if (binop_type <= BINOP_INDEX) {
+        return EXPR_INDEX;
+    } else if (binop_type <= BINOP_DIV) {
         return EXPR_MULDIV;
     } else if (binop_type <= BINOP_MINUS) {
         return EXPR_TERM;
@@ -105,6 +107,7 @@ enum expr_level ast_expr_level(AST_T* node) {
     switch (node->type) {
         case AST_VARIABLE: case AST_FUNCTION_CALL: case AST_INT: case AST_FLOAT: case AST_DOUBLE: case AST_STRING: case AST_NOOP: return EXPR_SINGLE_THING; break;
         case AST_MEMBER: return EXPR_MEMBER; break;
+        case AST_TYPE: return EXPR_TYPE; break;
         case AST_UNOP: return EXPR_UNOP; break;
         case AST_BINOP: return ast_binop_level(node->binop_type); break;
         default: err_enum_out_of_range("expression node type", node->type); break;
@@ -164,5 +167,6 @@ char* ast_node_type_string(AST_T* node) {
         case AST_MEMBER: return "member"; break;
         case AST_NEW: return "new"; break;
         case AST_CONSTRUCTOR: return "constructor"; break;
+        case AST_TYPE: return "type"; break;
     }
 }
