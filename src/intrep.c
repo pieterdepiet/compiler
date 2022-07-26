@@ -165,10 +165,10 @@ as_file_T* intrep_readbuf0_1(char* buf, size_t size, as_file_T* as) {
                     as_op_T* op = (f->operations[i] = calloc(1, sizeof(as_op_T)));
                     op->type = *((int32_t*) cur);
                     switch (op->type) {
-                        case ASOP_NOP: case ASOP_FREEREG: case ASOP_POPREG: case ASOP_FREEPTRREG: case ASOP_PTRTOREG: {
+                        case ASOP_NOP: case ASOP_FREEREG: case ASOP_POPREG: case ASOP_FREEPTRREG: case ASOP_PTRTOREG: case ASOP_INDEX: {
                             cur = &cur[sizeof(int32_t)];
                         } break;
-                        case ASOP_RETURN: case ASOP_NEXTREG:  case ASOP_NEW: case ASOP_MEMTOREG: case ASOP_PUSHREG: case ASOP_LOCALMEMBMOD: {
+                        case ASOP_RETURN: case ASOP_NEXTREG:  case ASOP_NEW: case ASOP_MEMTOREG: case ASOP_PUSHREG: case ASOP_LOCALMEMBMOD: case ASOP_INDEXMOD: {
                             op->op_size = *((sz_t*) (cur = &cur[sizeof(int32_t)]));
                             cur = &cur[sizeof(sz_t)];
                         } break;
@@ -358,12 +358,12 @@ sbuf_T intrep_filetobuf(as_file_T* as) {
                 }
                 switch (op->type) {
                     case ASOP_NOP: break;
-                    case ASOP_FREEREG: case ASOP_POPREG: case ASOP_FREEPTRREG: case ASOP_PTRTOREG: {
+                    case ASOP_FREEREG: case ASOP_POPREG: case ASOP_FREEPTRREG: case ASOP_PTRTOREG: case ASOP_INDEX: {
                         buf = realloc(buf, (size += sizeof(int32_t)));
                         *((int32_t*) &buf[cur]) = op->type;
                         cur += sizeof(int32_t);
                     } break;
-                    case ASOP_RETURN: case ASOP_NEXTREG: case ASOP_NEW: case ASOP_MEMTOREG: case ASOP_PUSHREG: case ASOP_LOCALMEMBMOD: {
+                    case ASOP_RETURN: case ASOP_NEXTREG: case ASOP_NEW: case ASOP_MEMTOREG: case ASOP_PUSHREG: case ASOP_LOCALMEMBMOD: case ASOP_INDEXMOD: {
                         buf = realloc(buf, (size += sizeof(int32_t) + sizeof(sz_t)));
                         *((int32_t*) &buf[cur]) = op->type;
                         *((sz_t*) &buf[cur += sizeof(int32_t)]) = op->op_size;
