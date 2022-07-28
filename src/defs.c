@@ -10,7 +10,6 @@ void defs_define_all(global_T* global_scope) {
     scope_add_typeg(global_scope, "Bool", bool_type);
     defs_define_int(global_scope);
     defs_define_string(global_scope);
-    defs_define_io(global_scope, null_type);
 }
 
 void defs_define(global_T* scope, fspec_T* fspec) {
@@ -18,30 +17,6 @@ void defs_define(global_T* scope, fspec_T* fspec) {
 }
 void defs_define_class_member();
 
-void defs_define_io(global_T* scope, data_type_T* null_type) {
-    // Print
-    fspec_T* fspec = init_fspec(null_type);
-    fspec_add_unnamed_arg(fspec, scope_get_typeg(scope, "Int"));
-    fspec->symbol_name = "_printi";
-    fspec->name = "print";
-    defs_define(scope, fspec);
-    fspec = init_fspec(null_type);
-    fspec->symbol_name = "_prints";
-    fspec->name = "prints";
-    fspec_add_unnamed_arg(fspec, scope_get_typeg(scope, "String"));
-    defs_define(scope, fspec);
-
-    fspec = init_fspec(scope_get_typeg(scope, "String"));
-    fspec->symbol_name = "_reads";
-    fspec->name = "input";
-    defs_define(scope, fspec);
-
-    fspec = init_fspec(scope_get_typeg(scope, "String"));
-    fspec->symbol_name = "_readsmsg";
-    fspec->name = "input";
-    fspec_add_unnamed_arg(fspec, fspec->return_type);
-    defs_define(scope, fspec);
-}
 void defs_define_int(global_T* scope) {
     data_type_T* int_type = init_data_type(TYPE_INT, "Int");
     int_type->primitive_size = 4;

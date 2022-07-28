@@ -6,8 +6,6 @@ void defs_define_all(global_T* global_scope);
 
 void defs_define(global_T* scope, fspec_T* fspec);
 
-void defs_define_io(global_T* scope, data_type_T* null_type);
-
 void defs_define_int(global_T* scope);
 void defs_define_string(global_T* scope);
 #endif

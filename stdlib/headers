@@ -1,0 +1,8 @@
+
+fun input() : String "_reads";
+
+fun input(_ msg : String) : String "_readsmsg"
+
+fun print(_ msg : String) "_prints"
+
+fun print(_ i : Int) "_printi"
