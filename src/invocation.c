@@ -26,6 +26,39 @@ int invocation_toobj(char* buf, size_t size, char* asname, char* objname) {
     }
 }
 
+int invocation_visitfile(char* filename, global_T* global, as_file_T* as_file) {
+    FILE* f = fopen(filename, "r");
+    fseek(f, 0, SEEK_END);
+    size_t size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    char* buf = calloc(1, size);
+    fread(buf, sizeof(char), size, f);
+    if (memcmp(buf, INTREP_CHECKSTR, INTREP_CHECKSTRLEN) == 0) {
+        intrep_readbuf0_1(buf, size, as_file);
+    } else {
+        lexer_T* lexer = init_lexer(buf); // Lexer: converts text into tokens
+        lexer->filename = filename;
+        parser_T* parser = init_parser(lexer); // Parser: converts tokens into AST (abstract syntax tree)
+        printf(
+            "+--------------+\n");
+        AST_T* root = parser_parse(parser); // Get the root ast node
+        printf(
+            "|    Parsed    |\n"
+            "+--------------+\n");
+        root = previsit(root);
+        printf(
+            "|  Previsited  |\n"
+            "+--------------+\n");
+        visitor_T* visitor = init_visitor(as_file, global); // Visitor: visits AST, makes a list of assembly operations and does things like type checking
+        visitor_visit_global(visitor->global_scope, root); // Visit root ast
+        printf(
+            "|   Visited    |\n"
+            "+--------------+\n");
+    }
+    fclose(f);
+    return 0;
+}
+
 int invocation_entry(int argc, char** argv) {
     enum {
         MODE_NONE,
@@ -70,59 +103,14 @@ int invocation_entry(int argc, char** argv) {
             }
         }
     } else {
-        // as_file_T** as_files = (void*) 0;
-        // size_t as_files_size = 0;
         as_file_T* as_file = init_as_file();
-        global_T* scope = init_global_scope(NULL);
+        global_T* global = init_global_scope(NULL);
+
+        invocation_visitfile("./stdlib/headers", global, as_file);
+
         for (size_t i = 0; i < input_files_size; i++) {
-            FILE* f = fopen(input_files[i], "r");
-            fseek(f, 0, SEEK_END);
-            size_t size = ftell(f);
-            fseek(f, 0, SEEK_SET);
-            char* buf = calloc(1, size);
-            fread(buf, sizeof(char), size, f);
-            // as_files = realloc(as_files, ++as_files_size * sizeof(as_file_T*));
-            if (memcmp(buf, INTREP_CHECKSTR, INTREP_CHECKSTRLEN) == 0) {
-                // as_files[as_files_size-1] = intrep_readbuf0_1(buf, size);
-                intrep_readbuf0_1(buf, size, as_file);
-            } else {
-                lexer_T* lexer = init_lexer(buf); // Lexer: converts text into tokens
-                parser_T* parser = init_parser(lexer); // Parser: converts tokens into AST (abstract syntax tree)
-                printf(
-                    "+--------------+\n");
-                AST_T* root = parser_parse(parser); // Get the root ast node
-                printf(
-                    "|    Parsed    |\n"
-                    "+--------------+\n");
-                root = previsit(root);
-                printf(
-                    "|  Previsited  |\n"
-                    "+--------------+\n");
-                visitor_T* visitor = init_visitor(as_file, scope); // Visitor: visits AST, makes a list of assembly operations and does things like type checking
-                visitor_visit_global(visitor->global_scope, root); // Visit root ast
-                printf(
-                    "|   Visited    |\n"
-                    "+--------------+\n");
-                // as_files[as_files_size-1] = as;
-            }
-            fclose(f);
+            invocation_visitfile(input_files[i], global, as_file);
         }
-        // buf = realloc(buf, ++bufsize);
-        // buf[bufsize - 1] = 0;
-        // lexer_T* lexer = init_lexer(buf); // Lexer: converts text into tokens
-        // parser_T* parser = init_parser(lexer); // Parser: converts tokens into AST (abstract syntax tree)
-        // printf(
-        //     "+--------------+\n");
-        // AST_T* root = parser_parse(parser); // Get the root ast node
-        // printf(
-        //     "|    Parsed    |\n"
-        //     "+--------------+\n");
-        // as_file_T* as = init_as_file(); // As_file: stores global data and function definitions
-        // visitor_T* visitor = init_visitor(as); // Visitor: visits AST, makes a list of assembly operations and does things like type checking
-        // visitor_visit_global(visitor->global_scope, root); // Visit root ast
-        // printf(
-        //     "|   Visited    |\n"
-        //     "+--------------+\n");
         if (mode == MODE_NONE || mode == MODE_EXEC) {
             if (outfile == (void*) 0) {
                 outfile = "./a.out";
@@ -159,27 +147,6 @@ int invocation_entry(int argc, char** argv) {
                     return 0;
                 }
             }
-            // if (pid == 0) {
-            //     execl("/usr/bin/clang", "clang", "-o", outfile, "./program.s", "./stdlib/lib.o", NULL);
-            //     exit(0);
-            // } else {
-            //     /* command has executed */
-            //     waitpid(-1, NULL, 0);
-            //     printf(
-            //         "|  Assembled   |\n"
-            //         "+--------------+\n");
-            //     // pid = fork();
-            //     // if (pid==0) {
-            //     //     execl("/usr/bin/ld", "ld", "./program.o", "./stdlib/lib.o", "-o", "./a.out", "-lSystem", NULL);
-            //     //     exit(0);
-            //     // } else {
-            //         printf(
-            //             "|    Linked    |\n"
-            //             "+--------------+\n");
-            //         waitpid(-1, NULL, 0);
-            //         return 0;
-            //     // }
-            // }
         } else if (mode == MODE_INTREP) {
             if (outfile == (void*) 0) {
                 outfile = "./rep.intrep";
