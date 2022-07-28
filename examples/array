@@ -1,10 +1,10 @@
 fun start(argc : Int, argv : String[]) : Int {
     if (argc > 1) {
-        prints(argv[1])
+        print(argv[1])
     }
 
     var s : String = input("what should i say? ");
-    prints(s);
+    print(s);
     
     return 0;
 }

@@ -5,7 +5,7 @@ class Greeter {
         this.greetstring = str;
     }
     private fun greet(_ str : String) {
-        prints(str);
+        print(str);
     }
     fun greet() {
         this.greet(this.greetstring);
@@ -19,7 +19,7 @@ class Greeter {
         this.greetstring = str;
     }
     constructor() {
-        prints("No args, still construct!");
+        print("No args, still construct!");
     }
 }
 
