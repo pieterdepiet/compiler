@@ -7,6 +7,7 @@ AST_T* init_ast(int type, struct PARSER_STRUCT* parser) {
     ast->lineno = parser->lexer->lineno;
     ast->charno = parser->lexer->charno;
     ast->index = parser->lexer->i;
+    ast->filename = parser->lexer->filename;
 
     // AST_VARIABLE_DEFINITION
     ast->variable_definition_type = (void*) 0;

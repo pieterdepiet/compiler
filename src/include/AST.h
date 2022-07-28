@@ -56,6 +56,7 @@ typedef struct AST_STRUCT {
     size_t lineno;
     size_t charno;
     size_t index;
+    char* filename;
     enum parenthetical {
         NOT_PARENTHETICAL,
         PARENTHETICAL
