@@ -14,6 +14,7 @@ typedef struct LEXER_STRUCT {
         NO_NEWLINE,
         NEWLINE
     } newline;
+    char* filename;
 } lexer_T;
 
 lexer_T* init_lexer(char* contents);
