@@ -290,10 +290,24 @@ AST_T* parser_parse_function_definition(parser_T* parser) {
     } else {
         ast_function_definition->function_definition_return_type = (void*) 0;
     }
-    parser_eat(parser, TOKEN_LBRACE);
-    ast_function_definition->function_definition_body = parser_parse_statements(parser);
-    parser_eat(parser, TOKEN_RBRACE);
-    return ast_function_definition;
+    if (parser->current_token->type == TOKEN_LBRACE) {
+        parser_eat(parser, TOKEN_LBRACE);
+        ast_function_definition->function_definition_body = parser_parse_statements(parser);
+        parser_eat(parser, TOKEN_RBRACE);
+        return ast_function_definition;
+    } else if (parser->current_token->type == TOKEN_SEMI) {
+        ast_function_definition->function_definition_body = (void*) 0;
+        return ast_function_definition;
+    } else if (parser->current_token->type == TOKEN_STRING) {
+        ast_function_definition->function_definition_body = init_ast(AST_STRING, parser);
+        ast_function_definition->function_definition_body->string_value = malloc(strlen(parser->current_token->value) + 1);
+        strcpy(ast_function_definition->function_definition_body->string_value, parser->current_token->value);
+        parser_eat(parser, TOKEN_STRING);
+        return ast_function_definition;
+    } else {
+        err_unexpected_token(parser, TOKEN_LBRACE);
+        return (void*) 0;
+    }
 }
 AST_T* parser_parse_variable(parser_T* parser) {
     char* token_value = parser->current_token->value;
