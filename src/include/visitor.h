@@ -11,6 +11,7 @@ typedef struct VISITOR_STRUCT {
     data_type_T* string_type;
     global_T* global_scope;
     as_file_T* as_file;
+    char* current_src;
 } visitor_T;
 
 visitor_T* init_visitor(as_file_T* as, global_T* scope);
