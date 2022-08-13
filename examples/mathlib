@@ -1,0 +1,21 @@
+// Compile command: ./compiler.out --il examples/mathlib -o ./mathlib.intreplib
+
+class Adder {
+    var val : Int;
+    static fun add(_ a : Int, to b : Int) : Int {
+        return a + b;
+    }
+    constructor(_ val : Int) {
+        this.val = val;
+    }
+    fun inc(by i : Int) {
+        this.val = this.val + i;
+    }
+    fun getval() : Int {
+        return this.val;
+    }
+}
+
+fun sumof(_ a : Int, and b : Int) : Int {
+    return a + b;
+}

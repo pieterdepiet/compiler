@@ -1,0 +1,8 @@
+// Link with mathlib library
+// Compile command: ./compiler.out mathlib.intreplib examples/math
+
+fun start(_ argc : Int) {
+    var a : Adder(3);
+    a.inc(by : sumof(1, and : 2));
+    Adder.add(a.getval(), to : 5).print()
+}
