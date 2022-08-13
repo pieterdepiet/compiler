@@ -125,6 +125,29 @@ as_function_T* intrep_read_as_function(wrapper_t wrapper) {
     }
     return f;
 }
+as_data_T* intrep_read_as_data(wrapper_t wrapper) {
+    as_data_T* data = calloc(1, sizeof(as_data_T));
+    data->type = readi(wrapper);
+    data->name = read_string(wrapper);
+    switch (data->type) {
+        case ASTYPE_CHAR: {
+            wrapper_read(&data->value, sizeof(int8_t), wrapper);
+        } break;
+        case ASTYPE_SHORT: {
+            wrapper_read(&data->value, sizeof(int16_t), wrapper);
+        } break;
+        case ASTYPE_INT: {
+            wrapper_read(&data->value, sizeof(int32_t), wrapper);
+        } break;
+        case ASTYPE_LONG: {
+            wrapper_read(&data->value, sizeof(int64_t), wrapper);
+        } break;
+        case ASTYPE_STRING: {
+            data->value.ptr_value = read_string(wrapper);
+        } break;
+    }
+    return data;
+}
 
 void writesz(wrapper_t wrapper, sz_t val) {
     wrapper_write(&val, sizeof(sz_t), wrapper);

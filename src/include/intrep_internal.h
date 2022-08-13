@@ -9,6 +9,7 @@ sz_t readsz(wrapper_t wrapper);
 int32_t readi(wrapper_t wrapper);
 char* read_string(wrapper_t wrapper);
 as_function_T* intrep_read_as_function(wrapper_t wrapper);
+as_data_T* intrep_read_as_data(wrapper_t wrapper);
 
 enum intrep_type {
     INTREP_EXE,
