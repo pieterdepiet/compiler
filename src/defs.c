@@ -3,11 +3,11 @@
 void defs_define_all(global_T* global_scope) {
     data_type_T* null_type = init_data_type(TYPE_NULL, "Null");
     null_type->primitive_size = 0;
-    scope_add_typeg(global_scope, "Null", null_type);
+    scope_add_typeg(global_scope, null_type);
 
     data_type_T* bool_type = init_data_type(TYPE_BOOL, "Bool");
     bool_type->primitive_size = 4;
-    scope_add_typeg(global_scope, "Bool", bool_type);
+    scope_add_typeg(global_scope, bool_type);
     defs_define_int(global_scope);
     defs_define_string(global_scope);
 }
@@ -31,10 +31,10 @@ void defs_define_int(global_T* scope) {
     fspec->is_class_function = 1;
     fspec_add_unnamed_arg(fspec, int_type);
     list_add(&int_type->instance_functions, &int_type->instance_functions_size, fspec);
-    scope_add_typeg(scope, "Int", int_type);
+    scope_add_typeg(scope, int_type);
 }
 void defs_define_string(global_T* scope) {
     data_type_T* string_type = init_data_type(TYPE_STRING, "String");
     string_type->primitive_size = 8;
-    scope_add_typeg(scope, "String", string_type);
+    scope_add_typeg(scope, string_type);
 }

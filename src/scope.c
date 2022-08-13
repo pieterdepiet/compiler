@@ -10,7 +10,6 @@ global_T* init_global_scope(struct VISITOR_STRUCT* visitor) {
     scope->variables_size = 0;
     scope->function_specs = (void*) 0;
     scope->functions_size = 0;
-    scope->type_names = (void*) 0;
     scope->types = (void*) 0;
     scope->types_size = 0;
     scope->visitor = visitor;
@@ -51,15 +50,11 @@ void scope_add_function(scope_T* scope, fspec_T* fspec) {
 void scope_add_functiong(global_T* scope, fspec_T* fspec) {
     list_add((void***) &scope->function_specs, &scope->functions_size, fspec);
 }
-void scope_add_type(scope_T* scope, char* name, data_type_T* type) {
+void scope_add_type(scope_T* scope, data_type_T* type) {
     list_add((void***) &scope->global->types, &scope->global->types_size, type);
-    scope->global->types_size--;
-    list_add((void***) &scope->global->type_names, &scope->global->types_size, name);
 }
-void scope_add_typeg(global_T* scope, char* name, data_type_T* type) {
+void scope_add_typeg(global_T* scope, data_type_T* type) {
     list_add((void***) &scope->types, &scope->types_size, type);
-    scope->types_size--;
-    list_add((void***) &scope->type_names, &scope->types_size, name);
 }
 data_type_T* scope_get_variable(scope_T* scope, char* name) {
     for (size_t i = 0; i < scope->variables_size; i++) {
@@ -74,7 +69,7 @@ data_type_T* scope_get_variable(scope_T* scope, char* name) {
 }
 data_type_T* scope_get_type(scope_T* scope, char* name) {
     for (size_t i = 0; i < scope->global->types_size; i++) {
-        if (utils_strcmp(name, scope->global->type_names[i])) {
+        if (utils_strcmp(name, scope->global->types[i]->type_name)) {
             return scope->global->types[i];
         }
     }
@@ -82,7 +77,7 @@ data_type_T* scope_get_type(scope_T* scope, char* name) {
 }
 data_type_T* scope_get_typeg(global_T* scope, char* name) {
     for (size_t i = 0; i < scope->types_size; i++) {
-        if (utils_strcmp(name, scope->type_names[i])) {
+        if (utils_strcmp(name, scope->types[i]->type_name)) {
             return scope->types[i];
         }
     }

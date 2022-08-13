@@ -2,7 +2,6 @@
 #define SCOPE_H
 #include "data_type.h"
 typedef struct GLOBAL_SCOPE_STRUCT {
-    char** type_names;
     data_type_T** types;
     size_t types_size;
     char** variable_names;
@@ -29,8 +28,8 @@ scope_T* init_function_scope(global_T* parent, struct ASSEMBLY_FUNCTION_STRUCT* 
 scope_T* init_scope(scope_T* parent);
 
 void scope_add_variable(scope_T* scope, char* name, data_type_T* type);
-void scope_add_type(scope_T* scope, char* name, data_type_T* type);
-void scope_add_typeg(global_T* scope, char* name, data_type_T* type);
+void scope_add_type(scope_T* scope, data_type_T* type);
+void scope_add_typeg(global_T* scope, data_type_T* type);
 void scope_add_function(scope_T* scope, fspec_T* fspec);
 void scope_add_functiong(global_T* scope, fspec_T* fspec);
 data_type_T* scope_get_variable(scope_T* scope, char* name);
