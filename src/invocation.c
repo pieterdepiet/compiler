@@ -9,6 +9,7 @@
 #include "include/intrep.h"
 #include "include/assembly.h"
 #include "include/previsit.h"
+#include "include/utils.h"
 
 int invocation_toobj(char* buf, size_t size, char* asname, char* objname) {
     FILE* f = fopen(asname, "w");
@@ -34,7 +35,10 @@ int invocation_visitfile(char* filename, global_T* global, as_file_T* as_file) {
     char* buf = calloc(1, size);
     fread(buf, sizeof(char), size, f);
     if (memcmp(buf, INTREP_CHECKSTR, INTREP_CHECKSTRLEN) == 0) {
-        intrep_readbuf0_1(buf, size, as_file);
+        free(buf);
+        fseek(f, 0, SEEK_SET);
+        wrapper_t wrapper = wrapper_wrapf(f);
+        intrep_read(as_file, global, wrapper);
     } else {
         lexer_T* lexer = init_lexer(buf); // Lexer: converts text into tokens
         lexer->filename = filename;
@@ -65,7 +69,8 @@ int invocation_entry(int argc, char** argv) {
         MODE_EXEC,
         MODE_OBJ,
         MODE_INTREP,
-        MODE_LIST
+        MODE_LIST,
+        MODE_LIB
     } mode = MODE_NONE;
     char** input_files = (void*) 0;
     size_t input_files_size = 0;
@@ -73,15 +78,34 @@ int invocation_entry(int argc, char** argv) {
     for (size_t i = 1; i < argc; i++) {
         if (argv[i][0] == '-') {
             if (argv[i][1] == '-') {
-                input_files = realloc(input_files, ++input_files_size * sizeof(char*));
-                input_files[input_files_size-1] = argv[i];
+                if (argv[i][2] == '\0') {
+                    input_files = realloc(input_files, ++input_files_size * sizeof(char*));
+                    input_files[input_files_size-1] = argv[i];
+                } else {
+                    char* arg = &argv[i][2];
+                    if (utils_strcmp(arg, "ix")) {
+                        mode = MODE_INTREP;
+                    } else if (utils_strcmp(arg, "il")) {
+                        mode = MODE_LIB;
+                    } else if (utils_strcmp(arg, "ls")) {
+                        if (mode == MODE_NONE) {
+                            mode = MODE_LIST;
+                        } else {
+                            fprintf(stderr, "multiple modes specified\n"); exit(EXIT_FAILURE);
+                        }
+                    } else {
+                        err_unknown_option(argv[i]);
+                    }
+                }
             } else {
                 switch (argv[i][1]) {
                     case 'o': if (outfile==(void*)0) {outfile = argv[++i];} else {fprintf(stderr, "multiple outputs specified\n"); exit(EXIT_FAILURE);} break;
                     case 'c': if (mode == MODE_NONE) {mode = MODE_OBJ;} else {fprintf(stderr, "multiple modes specified\n"); exit(EXIT_FAILURE);} break;
                     case 'x': if (mode == MODE_NONE) {mode = MODE_EXEC;} else {fprintf(stderr, "multiple modes specified\n"); exit(EXIT_FAILURE);} break;
                     case 'i': if (mode == MODE_NONE) {mode = MODE_INTREP;} else {fprintf(stderr, "multiple modes specified\n"); exit(EXIT_FAILURE);} break;
-                    case 'l': if (mode == MODE_NONE) {mode = MODE_LIST;} else {fprintf(stderr, "multiple modes specified\n"); exit(EXIT_FAILURE);} break;
+                    case 'l': {
+                        // if (libname == (void*)0) {libname = argv[++i]; mode = MODE_LIB;} else {fprintf(stderr, "multiple library names specified\n"); exit(EXIT_FAILURE);} break;
+                    } break;
                     default: {
                         input_files = realloc(input_files, ++input_files_size * sizeof(char*));
                         input_files[input_files_size-1] = argv[i];
@@ -151,7 +175,20 @@ int invocation_entry(int argc, char** argv) {
             if (outfile == (void*) 0) {
                 outfile = "./rep.intrep";
             }
-            intrep_write(as_file, outfile);
+            FILE* out = fopen(outfile, "w");
+            if (out) {
+                wrapper_t wrapper = wrapper_wrapf(out);
+                intrep_write_exe(as_file, wrapper);
+            }
+        } else if (mode == MODE_LIB) {
+            if (outfile == (void*) 0) {
+                outfile = "./lib.intrep";
+            }
+            FILE* out = fopen(outfile, "w");
+            if (out) {
+                wrapper_t wrapper = wrapper_wrapf(out);
+                intrep_write_lib(as_file, global, wrapper);
+            }
         }
     }
     return 1;
