@@ -32,7 +32,6 @@ typedef struct assembly_data_struct {
 } as_data_T;
 typedef struct ASSEMBLY_OPERATION_STRUCT {
     enum op_type {
-        ASOP_NOP,
         ASOP_RETURN,
         ASOP_ARGTOSTACK,
         ASOP_ARGTOREG,
