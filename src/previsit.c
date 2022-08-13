@@ -18,6 +18,7 @@ AST_T* previsit(AST_T* node) {
         case AST_FUNCTION_DEFINITION: {
             node->function_definition_body = previsit(node->function_definition_body);
         }; break;
+        default: break;
     }
     return node;
 }
