@@ -1,6 +1,7 @@
 #ifndef DATA_TYPE_H
 #define DATA_TYPE_H
 #include <sys/types.h>
+#include <stdint.h>
 
 
 typedef struct DATA_TYPE_STRUCT {
@@ -18,8 +19,11 @@ typedef struct DATA_TYPE_STRUCT {
         TYPE_STRING,
         TYPE_STRUCT,
         TYPE_PTR,
-        TYPE_ARRAY
+        TYPE_ARRAY,
+        TYPE_STATICTYPE
     } primitive_type;
+    size_t primitive_size;
+    
     struct DATA_TYPE_STRUCT** class_prototypes;
     size_t class_prototypes_size;
 
@@ -43,10 +47,13 @@ typedef struct DATA_TYPE_STRUCT {
     size_t* array_sizes;
 
     char* type_name;
-    size_t primitive_size;
-    struct {
-        unsigned char is_private : 1;
-        unsigned char is_this : 1;
+    union {
+        uint32_t flags;
+        struct {
+            unsigned char is_private : 1;
+            unsigned char is_this : 1;
+            unsigned char is_fromsource : 1;
+        };
     };
 } data_type_T;
 typedef struct FUNCTION_SPECIFICATIONS_STRUCT {
@@ -58,9 +65,13 @@ typedef struct FUNCTION_SPECIFICATIONS_STRUCT {
     size_t unnamed_length;
     char* symbol_name;
     char* name;
-    struct {
-        unsigned char is_class_function : 1;
-        unsigned char is_private : 1;
+    union {
+        uint32_t flags;
+        struct {
+            unsigned char is_class_function : 1;
+            unsigned char is_private : 1;
+            unsigned char is_fromsource : 1;
+        };
     };
 } fspec_T;
 
