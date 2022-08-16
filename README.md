@@ -11,10 +11,11 @@ Experimental project to learn assembly and other low-level stuff.
     - Overloading
 - If, else if, else and comparisons
 - Some object orientation
-- Intermediate representation, universal file format for half-compiled code
+- Intermediate executable representation, universal file format for half-compiled code.
+- Intermediate library representation, like intermediate executable representation, but can also contain data types and function definitions
 - Arrays, only local definition, can access and modify local array and pointers like argv
 ## In progress
-- Arrays
+- Nested function calls
 ## TODO:
 - [ ] Add import
 - [x] Implement classes
